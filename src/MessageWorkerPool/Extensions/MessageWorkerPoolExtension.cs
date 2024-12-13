@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -10,19 +10,20 @@ namespace MessageWorkerPool.Extensions
 {
     public static class MessageWorkerPoolExtension
     {
-        public static IHostBuilder AddRabbiMqWorkerPool(this IHostBuilder hostBuilder, RabbitMqSetting rabbitMqSetting)
+        public static IServiceCollection AddRabbiMqWorkerPool(this IServiceCollection services, RabbitMqSetting rabbitMqSetting)
         {
-            if (hostBuilder == null)
-                throw new ArgumentNullException(nameof(hostBuilder));
+            if (services == null)
+                throw new ArgumentNullException(nameof(services));
 
+            if (rabbitMqSetting == null)
+                throw new ArgumentNullException(nameof(rabbitMqSetting));
 
-            return hostBuilder.ConfigureServices((context, services) =>
-            {
-                services.AddHostedService<WorkerPoolService>();
-                services.TryAddSingleton<IWorker, RabbitMqGroupWorker>();
-                services.TryAddSingleton<IPoolFactory, WorkerPoolFactory>();
-                services.AddSingleton(rabbitMqSetting);
-            });
+            services.AddHostedService<WorkerPoolService>();
+            services.TryAddSingleton<IWorker, RabbitMqGroupWorker>();
+            services.TryAddSingleton<IPoolFactory, WorkerPoolFactory>();
+            services.AddSingleton(rabbitMqSetting);
+
+            return services;
         }
     }
 }

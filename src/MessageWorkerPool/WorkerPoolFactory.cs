@@ -7,7 +7,7 @@ namespace MessageWorkerPool
 {
     public class WorkerPoolFactory : IPoolFactory
     {
-        ILoggerFactory _loggerFactory;
+        private readonly ILoggerFactory _loggerFactory;
         public WorkerPoolFactory(ILoggerFactory loggerFactory)
         {
             _loggerFactory = loggerFactory;

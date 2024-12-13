@@ -1,12 +1,11 @@
-using System;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-
 
 namespace MessageWorkerPool
 {
+    /// <summary>
+    /// encapsulate message from MQ service
+    /// </summary>
     public class MessageTask
     {
         private readonly ILogger _logger;
