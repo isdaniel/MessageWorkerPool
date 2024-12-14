@@ -253,4 +253,4 @@ artifacts/
 *DS_Store
 *.sln.ide
 
-ProcessBin/*
+*/ProcessBin/*

@@ -22,7 +22,7 @@ namespace MessageWorkerPool.Test
                     new PoolSetting(){
                         Arguments = "client.dll",
                         Group = "groupA",
-                        WorkUnitCount = 1,
+                        WorkerUnitCount = 1,
                         CommnadLine = "dotnet"
                     }
                 }
@@ -84,7 +84,7 @@ namespace MessageWorkerPool.Test
                 {
                     Arguments = "client.dll",
                     Group = "groupA",
-                    WorkUnitCount = 1,
+                    WorkerUnitCount = 1,
                     CommnadLine = "dotnet"
                 }
                 }

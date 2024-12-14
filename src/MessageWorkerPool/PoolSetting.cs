@@ -1,4 +1,4 @@
-﻿namespace MessageWorkerPool
+namespace MessageWorkerPool
 {
     /// <summary>
     /// Pool setting
@@ -8,7 +8,7 @@
         /// <summary>
         /// worker unit count
         /// </summary>
-        public ushort WorkUnitCount { get; set; }
+        public ushort WorkerUnitCount { get; set; }
         /// <summary>
         /// process group name
         /// </summary>

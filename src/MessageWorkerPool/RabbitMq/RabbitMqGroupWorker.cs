@@ -29,13 +29,13 @@ namespace MessageWorkerPool.RabbitMq
             if (string.IsNullOrEmpty(group) || !_poolMap.TryGetValue(group, out var workerPool))
             {
                 //send wrong group data in this queue......
-                Logger.LogInformation($"[correlationId:{correlationId}] data send wrong queue group type is {group ?? "Empty"}, received message:{message}");
+                Logger.LogWarning($"[correlationId:{correlationId}] data send wrong queue group type is {group ?? "Empty"}, received message:{message}");
                 return false;
             }
             else
             {
-                Logger.LogInformation($"[correlationId:{correlationId}] group: {group}, received message:{message}");
-                return await workerPool.AddTaskAsync(new MessageTask(message, group, correlationId, Logger));
+                Logger.LogDebug($"[correlationId:{correlationId}] group: {group}, received message:{message}");
+                return await workerPool.AddTaskAsync(new MessageTask(message, group, correlationId, Logger)).ConfigureAwait(false);
             }
         }
 
@@ -60,7 +60,7 @@ namespace MessageWorkerPool.RabbitMq
             {
                 closePoolTasks.Add(Task.Run(async () =>
                 {
-                    await item.Value.WaitFinishedAsync(token);
+                    await item.Value.WaitFinishedAsync(token).ConfigureAwait(false);
                 }, token));
             }
 

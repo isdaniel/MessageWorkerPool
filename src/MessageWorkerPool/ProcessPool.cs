@@ -17,37 +17,51 @@ namespace MessageWorkerPool
         private readonly PoolSetting _poolSetting;
         private readonly ILogger<ProcessPool> _logger;
         private readonly BlockingCollection<MessageTask> _taskQueue;
-        private readonly List<Task> _workers = new List<Task>();
-        private readonly int _processCount;
+        internal readonly List<Task> _workers = new List<Task>();
+        public int ProcessCount { get; private set; }
         private volatile bool _finish = false;
-        private readonly List<Process> _processList = new List<Process>();
+        private readonly List<IProcessWrapper> _processList = new List<IProcessWrapper>();
 
         public ProcessPool(PoolSetting poolSetting, ILoggerFactory loggerFactory)
         {
-            this._processCount = poolSetting.WorkUnitCount;
+            ProcessCount = poolSetting.WorkerUnitCount;
             this._poolSetting = poolSetting;
             this._logger = loggerFactory.CreateLogger<ProcessPool>();
-            _taskQueue = new BlockingCollection<MessageTask>(poolSetting.WorkUnitCount);
+            _taskQueue = new BlockingCollection<MessageTask>(poolSetting.WorkerUnitCount);
             InitPool();
         }
 
         private void InitPool()
         {
-            for (int i = 0; i < _processCount; i++)
+            for (int i = 0; i < ProcessCount; i++)
             {
-                var process = CreateProcess();
+                var process = SetUpProcess();
                 this._workers.Add(Task.Run(() =>
                 {
                     ProcessHandler(process);
+                }).ContinueWith(task => {
+                    _logger.LogInformation($"[{task.Id}] Begin WaitForExit free resource....");
+                    process.WaitForExit();
+                    process.Close();
+                    _logger.LogInformation($"[{task.Id}] End WaitForExit and free resource....");
                 }));
                 _processList.Add(process);
             }
         }
 
-        private Process CreateProcess()
+        internal virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo)
         {
-            Process process = new Process();
-            process.StartInfo = new ProcessStartInfo()
+            var process = new Process
+            {
+                StartInfo = processStartInfo
+            };
+
+            return new ProcessWrapper(process);
+        }
+
+        private IProcessWrapper SetUpProcess()
+        {
+            IProcessWrapper process = CreateProcess(new ProcessStartInfo()
             {
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
@@ -56,7 +70,7 @@ namespace MessageWorkerPool
                 FileName = _poolSetting.CommnadLine,
                 Arguments = _poolSetting.Arguments,
                 CreateNoWindow = true
-            };
+            });
             process.Start();
 
             process.BeginErrorReadLine();
@@ -83,7 +97,7 @@ namespace MessageWorkerPool
             return Task.FromResult(result);
         }
 
-        private void ProcessHandler(Process process)
+        private void ProcessHandler(IProcessWrapper process)
         {
             while (true)
             {
@@ -104,10 +118,11 @@ namespace MessageWorkerPool
         {
             _finish = true;
             _taskQueue.CompleteAdding();
-            foreach (var process in _processList)
-            {
-                process.WaitForExit();
-            }
+            //foreach (var process in _processList)
+            //{
+            //    process.WaitForExit();
+            //    process.Close();
+            //}
 
             await Task.WhenAll(_workers.ToArray());
         }

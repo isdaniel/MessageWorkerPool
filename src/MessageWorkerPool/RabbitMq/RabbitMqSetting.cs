@@ -33,7 +33,11 @@ namespace MessageWorkerPool.RabbitMq
         /// The host to connect to
         /// </summary>
         public string HostName { get; set; }
-        public ushort PrefetchTaskCount { get; set; }
+        /// <summary>
+        /// How many task would like to prefetch from message queue
+        /// default value is 1 (0 if unlimited)
+        /// </summary>
+        public ushort PrefetchTaskCount { get; set; } = 1;
         public PoolSetting[] PoolSettings { get; set; }
     }
 }
