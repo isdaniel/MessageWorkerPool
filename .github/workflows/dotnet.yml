@@ -18,11 +18,11 @@ jobs:
 
     - name: Restore dependencies
       run: dotnet restore
-      working-directory: ./
+      working-directory: ./src
 
     - name: Build
       run: dotnet build --no-restore --configuration Release
-      working-directory: ./
+      working-directory: ./src
 
     - name: Test
       run: dotnet test --no-build --verbosity normal --configuration Release
