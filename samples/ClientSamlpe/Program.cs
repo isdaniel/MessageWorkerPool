@@ -1,15 +1,30 @@
-﻿Console.WriteLine("worker starting...");
-Console.WriteLine("Enter text (type 'quit' to stop):");
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading;
 
-while (true)
+namespace ClientSamlpe
 {
-    var input = Console.ReadLine();
-
-    if (input.Equals("quit", StringComparison.OrdinalIgnoreCase))
+    class Program
     {
-        Console.WriteLine("Exiting program.");
-        break;
-    }
+        static void Main(string[] args)
+        {
+            Console.WriteLine("worker starting...");
+            Console.WriteLine("Enter text (type 'quit' to stop):");
 
-    Console.WriteLine($"process get string from message pool: {input}");
+            while (true)
+            {
+                var input = Console.ReadLine();
+
+                if (input.Equals("quit", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine("Exiting program.");
+                    break;
+                }
+                Console.WriteLine($"process get string from message pool: {input}");
+            }
+
+        }
+    }
 }
+
