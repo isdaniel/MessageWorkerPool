@@ -1,12 +1,12 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+<Project Sdk="Microsoft.NET.Sdk.Worker">
 	<PropertyGroup>
-		<TargetFramework>netcoreapp3.1</TargetFramework>
+		<TargetFramework>net6.0</TargetFramework>
 		<OutputType>Exe</OutputType>
 	</PropertyGroup>
 
 
 	<ItemGroup>
-		<ProjectReference Include="..\QueueWorkerEngine\MessageWorkerPool.csproj" />
+		<PackageReference Include="MessageWorkerPool" Version="0.0.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />

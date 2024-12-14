@@ -16,11 +16,11 @@ namespace MessageWorkerPool
         const string CLOSED_SIGNAL = "quit";
         private readonly PoolSetting _poolSetting;
         private readonly ILogger<ProcessPool> _logger;
-        private BlockingCollection<MessageTask> _taskQueue;
-        private List<Task> _workers = new List<Task>();
+        private readonly BlockingCollection<MessageTask> _taskQueue;
+        private readonly List<Task> _workers = new List<Task>();
         private readonly int _processCount;
         private volatile bool _finish = false;
-        private List<Process> _processList = new List<Process>();
+        private readonly List<Process> _processList = new List<Process>();
 
         public ProcessPool(PoolSetting poolSetting, ILoggerFactory loggerFactory)
         {

@@ -32,7 +32,7 @@ services:
     networks:
       - net-mq
   workersample:
-    build: ./
+    build: ./samples
     #image: dog830228/mq_poc-nodeworker
     environment:
       - QUEUENAME=${QUEUENAME}

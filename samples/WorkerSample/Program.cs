@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MessageWorkerPool;
 using MessageWorkerPool.RabbitMq;
@@ -27,10 +27,10 @@ public class Program
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort) 5672,
                 PrefetchTaskCount = ushort.TryParse(Environment.GetEnvironmentVariable("PREFETCHTASKCOUNT"), out ushort result) ? result : (ushort) 1,
                 PoolSettings = new PoolSetting[] //which can read from setting files.
-                        {
-                                new PoolSetting(){WorkUnitCount = 5,Group = "groupA" , CommnadLine = "dotnet",Arguments = @"./Process/Group/Client.dll"},
-                                new PoolSetting(){WorkUnitCount = 5,Group = "groupB" , CommnadLine = "dotnet",Arguments = @"./Process/Group/Client.dll"}
-                        }
+                {
+                    new PoolSetting(){WorkUnitCount = 5,Group = "groupA" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"},
+                    new PoolSetting(){WorkUnitCount = 5,Group = "groupB" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"}
+                }
             });
 
 }

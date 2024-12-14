@@ -30,15 +30,6 @@ namespace MessageWorkerPool.RabbitMq
             Setting = setting;
 
             logger.LogInformation($"RabbitMq connection string: {setting.GetUriWithoutPassword()}");
-
-            var _connFactory = new ConnectionFactory
-            {
-                Uri = setting.GetUri(),
-                DispatchConsumersAsync = true // async mode
-            };
-
-            _conn = _connFactory.CreateConnection();
-
         }
 
         /// <summary>
@@ -52,6 +43,13 @@ namespace MessageWorkerPool.RabbitMq
         {
             try
             {
+                var _connFactory = new ConnectionFactory
+                {
+                    Uri = Setting.GetUri(),
+                    DispatchConsumersAsync = true // async mode
+                };
+
+                _conn = _connFactory.CreateConnection();
                 _channle = _conn.CreateModel();
                 _consumer = new AsyncEventingBasicConsumer(_channle);
                 _channle.BasicQos(0, Setting.PrefetchTaskCount, true);
@@ -59,7 +57,7 @@ namespace MessageWorkerPool.RabbitMq
             }
             catch (Exception ex)
             {
-                Logger.LogCritical("create channel fail!", ex);
+                Logger.LogCritical("create connection/channle fail!", ex);
                 throw;
             }
 

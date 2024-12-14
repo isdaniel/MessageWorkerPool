@@ -25,5 +25,16 @@ namespace MessageWorkerPool.Extensions
 
             return services;
         }
+
+        public static IHostBuilder AddRabbiMqWorkerPool(this IHostBuilder hostBuilder, RabbitMqSetting rabbitMqSetting)
+        {
+            if (hostBuilder == null)
+                throw new ArgumentNullException(nameof(hostBuilder));
+
+            return hostBuilder.ConfigureServices((service) =>
+            {
+                AddRabbiMqWorkerPool(service,rabbitMqSetting);
+            });
+        }
     }
 }
