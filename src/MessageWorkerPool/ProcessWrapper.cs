@@ -1,13 +1,17 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO;
 
 namespace MessageWorkerPool
 {
+    /// <summary>
+    /// process wrapper, that provide more flexibility and we can do unit test
+    /// </summary>
     public class ProcessWrapper : IProcessWrapper
     {
         private readonly Process _process;
 
         public StreamWriter StandardInput => _process.StandardInput;
+        public StreamReader StandardOutput => _process.StandardOutput;
 
         public ProcessWrapper(Process process)
         {
@@ -21,6 +25,7 @@ namespace MessageWorkerPool
         public bool Start() => _process.Start();
 
         public void WaitForExit() => _process.WaitForExit();
+        public int Id => _process.Id;
 
         public void BeginErrorReadLine()
         {

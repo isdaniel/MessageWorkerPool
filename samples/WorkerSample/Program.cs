@@ -12,6 +12,8 @@ public class Program
     {
         CreateHostBuilder(args).Build().Run();
     }
+
+
     public static IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
             .ConfigureLogging(logging =>
@@ -28,8 +30,8 @@ public class Program
                 PrefetchTaskCount = ushort.TryParse(Environment.GetEnvironmentVariable("PREFETCHTASKCOUNT"), out ushort result) ? result : (ushort) 1,
                 PoolSettings = new PoolSetting[] //which can read from setting files.
                 {
-                    new PoolSetting(){WorkUnitCount = 3,Group = "groupA" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"},
-                    new PoolSetting(){WorkUnitCount = 3,Group = "groupB" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"}
+                    new PoolSetting(){WorkerUnitCount = 3,Group = "groupA" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"},
+                    new PoolSetting(){WorkerUnitCount = 3,Group = "groupB" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"}
                 }
             });
 

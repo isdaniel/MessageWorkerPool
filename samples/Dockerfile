@@ -24,5 +24,6 @@ RUN apt-get update && \
 WORKDIR /app
 COPY --from=build /app .
 #COPY ./ProcessBin/ ../ProcessBin/
+#CMD ["sh", "-c", "while :; do sleep 3600; done"]
 CMD ["dotnet","WorkerSample.dll"]
 

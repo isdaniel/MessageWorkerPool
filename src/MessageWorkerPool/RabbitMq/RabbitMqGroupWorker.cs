@@ -61,10 +61,12 @@ namespace MessageWorkerPool.RabbitMq
                 closePoolTasks.Add(Task.Run(async () =>
                 {
                     await item.Value.WaitFinishedAsync(token).ConfigureAwait(false);
-                }, token));
+                }));
             }
 
             await Task.WhenAll(closePoolTasks.ToArray());
+
+            Logger.LogInformation($"graceful shutdown finish!!");
         }
     }
 }

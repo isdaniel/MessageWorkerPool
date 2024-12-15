@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO;
 
 namespace MessageWorkerPool
@@ -12,5 +12,7 @@ namespace MessageWorkerPool
 
         event DataReceivedEventHandler ErrorDataReceived;
         StreamWriter StandardInput { get; }
+        StreamReader StandardOutput { get; }
+        int Id { get; }
     }
 }

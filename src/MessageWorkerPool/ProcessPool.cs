@@ -39,11 +39,14 @@ namespace MessageWorkerPool
                 this._workers.Add(Task.Run(() =>
                 {
                     ProcessHandler(process);
-                }).ContinueWith(task => {
-                    _logger.LogInformation($"[{task.Id}] Begin WaitForExit free resource....");
+
+                    //signle to close process
+                    process.StandardInput.WriteLine(CLOSED_SIGNAL);
+                    int pid = process.Id;
+                    _logger.LogInformation($"[Pid:{pid}] Begin WaitForExit free resource....");
                     process.WaitForExit();
                     process.Close();
-                    _logger.LogInformation($"[{task.Id}] End WaitForExit and free resource....");
+                    _logger.LogInformation($"[Pid:{pid}] End WaitForExit and free resource....");
                 }));
                 _processList.Add(process);
             }
@@ -88,8 +91,8 @@ namespace MessageWorkerPool
 
         public Task<bool> AddTaskAsync(MessageTask task)
         {
-            bool result = false;
-            if (!_finish)
+            bool result = false; 
+            if (!_finish && !_taskQueue.IsCompleted)
             {
                 _taskQueue.Add(task);
                 result = true;
@@ -99,30 +102,22 @@ namespace MessageWorkerPool
 
         private void ProcessHandler(IProcessWrapper process)
         {
-            while (true)
+            while (_taskQueue.TryTake(out var task, Timeout.InfiniteTimeSpan))
             {
-                var task = _taskQueue.Take();
-
                 if (task != null)
                     process.StandardInput.WriteLine(task.ToJsonMessage());
 
-                if (_finish && _taskQueue.Count == 0)
+                if (_finish && _taskQueue.IsCompleted)
+                {
                     break;
+                }
             }
-
-            //signle to close process
-            process.StandardInput.WriteLine(CLOSED_SIGNAL);
         }
 
         public async Task WaitFinishedAsync(CancellationToken token)
         {
             _finish = true;
             _taskQueue.CompleteAdding();
-            //foreach (var process in _processList)
-            //{
-            //    process.WaitForExit();
-            //    process.Close();
-            //}
 
             await Task.WhenAll(_workers.ToArray());
         }

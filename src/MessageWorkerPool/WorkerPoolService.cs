@@ -1,3 +1,5 @@
+using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
@@ -9,15 +11,28 @@ namespace MessageWorkerPool
     {
         private readonly ILogger<WorkerPoolService> _logger;
         private readonly IWorker _worker;
+        private readonly IHostApplicationLifetime _appLifetime;
 
-        public WorkerPoolService(ILogger<WorkerPoolService> logger, IWorker worker)
+        public WorkerPoolService(ILogger<WorkerPoolService> logger, IWorker worker, IHostApplicationLifetime appLifetime)
         {
             this._worker = worker;
+            _appLifetime = appLifetime;
             _logger = logger;
         }
 
         protected override Task ExecuteAsync(CancellationToken token)
         {
+            //_appLifetime.ApplicationStopping.Register(async () => {
+            //    _logger.LogInformation("starting ApplicationStopping...!");
+            //    await _worker.GracefulShutDownAsync(token);
+            //});
+
+            //Console.CancelKeyPress += async (sender, e) =>
+            //{
+            //    await _worker.GracefulShutDownAsync(token);
+            //    _logger.LogInformation("Cancel!");
+            //};
+
             _worker.CreateWorkByUnit(token);
             token.WaitHandle.WaitOne();
             _logger.LogInformation("ExecuteAsync Finish!");
