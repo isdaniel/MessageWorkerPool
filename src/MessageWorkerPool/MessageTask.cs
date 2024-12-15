@@ -10,9 +10,9 @@ namespace MessageWorkerPool
     {
         private readonly ILogger _logger;
 
-        protected string Group { get; }
-        protected string Message { get; }
-        protected string CorrelationId { get; }
+        public string Group { get; private set; }
+        public string Message { get; private set; }
+        public string CorrelationId { get; private set; }
         public MessageTask(string message, string group, string correlationId, ILogger logger)
         {
             Message = message;

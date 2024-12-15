@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,17 +14,28 @@ namespace MessageWorkerPool
     /// </summary>
     public class ProcessPool : IWorkerPool
     {
-        const string CLOSED_SIGNAL = "quit";
+        public const string CLOSED_SIGNAL = "quit";
         private readonly PoolSetting _poolSetting;
         private readonly ILogger<ProcessPool> _logger;
         private readonly BlockingCollection<MessageTask> _taskQueue;
         internal readonly List<Task> _workers = new List<Task>();
         public int ProcessCount { get; private set; }
         private volatile bool _finish = false;
-        private readonly List<IProcessWrapper> _processList = new List<IProcessWrapper>();
+        public bool IsFinish  => _finish;
+
+        internal readonly List<IProcessWrapper> _processList = new List<IProcessWrapper>();
 
         public ProcessPool(PoolSetting poolSetting, ILoggerFactory loggerFactory)
         {
+            if (poolSetting == null)
+                throw new NullReferenceException(nameof(poolSetting));
+
+            if (loggerFactory == null)
+                throw new NullReferenceException(nameof(poolSetting));
+
+            if (string.IsNullOrEmpty(poolSetting.CommnadLine))
+                throw new ArgumentNullException($"Commnad line can't be null {nameof(poolSetting.CommnadLine)}");
+
             ProcessCount = poolSetting.WorkerUnitCount;
             this._poolSetting = poolSetting;
             this._logger = loggerFactory.CreateLogger<ProcessPool>();
@@ -105,7 +117,9 @@ namespace MessageWorkerPool
             while (_taskQueue.TryTake(out var task, Timeout.InfiniteTimeSpan))
             {
                 if (task != null)
+                {
                     process.StandardInput.WriteLine(task.ToJsonMessage());
+                }
 
                 if (_finish && _taskQueue.IsCompleted)
                 {
