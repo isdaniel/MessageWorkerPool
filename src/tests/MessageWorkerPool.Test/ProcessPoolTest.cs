@@ -145,6 +145,35 @@ namespace MessageWorkerPool.Test
             processPool.mockStandardInput.Verify(p => p.WriteLine(ProcessPool.CLOSED_SIGNAL), Times.Exactly(unitCount));
             processPool.mockProcess.Verify(p => p.WaitForExit(), Times.Exactly(unitCount));
             processPool.mockProcess.Verify(p => p.Close(), Times.Exactly(unitCount));
+            processPool.mockProcess.Verify(p => p.Start(), Times.Exactly(unitCount));
+        }
+
+        [Fact]
+        public async Task SendTaskAfterWaitFinishedAsync_SignalProcesses_OnlyAcceptOne()
+        {
+            int unitCount = 1;
+            var processPool = CreateProcessPool(new PoolSetting
+            {
+                WorkerUnitCount = (ushort)unitCount,
+                CommnadLine = "dummyCommand",
+                Arguments = "--dummy"
+            });
+
+            // Act
+            var messageTask = new MessageTask("Test Task", null, null, null);
+            var actJson = JsonSerializer.Serialize(messageTask);
+            await processPool.AddTaskAsync(messageTask, CancellationToken.None);
+            await processPool.WaitFinishedAsync(CancellationToken.None);
+            await processPool.AddTaskAsync(messageTask, CancellationToken.None);
+            await processPool.AddTaskAsync(messageTask, CancellationToken.None);
+            await processPool.AddTaskAsync(messageTask, CancellationToken.None);
+
+            // Assert
+            processPool.mockStandardInput.Verify(p => p.WriteLine(actJson), Times.Once);
+            processPool.mockStandardInput.Verify(p => p.WriteLine(ProcessPool.CLOSED_SIGNAL), Times.Exactly(unitCount));
+            processPool.mockProcess.Verify(p => p.WaitForExit(), Times.Exactly(unitCount));
+            processPool.mockProcess.Verify(p => p.Close(), Times.Exactly(unitCount));
+            processPool.mockProcess.Verify(p => p.Start(), Times.Exactly(unitCount));
         }
 
 

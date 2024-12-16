@@ -5,6 +5,7 @@ using MessageWorkerPool.RabbitMq;
 using Microsoft.Extensions.Logging;
 using MessageWorkerPool.Extensions;
 using System;
+using System.Security.Cryptography;
 
 public class Program
 {
@@ -12,7 +13,6 @@ public class Program
     {
         CreateHostBuilder(args).Build().Run();
     }
-
 
     public static IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
@@ -27,7 +27,7 @@ public class Program
                 Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort) 5672,
-                PrefetchTaskCount = 5,
+                PrefetchTaskCount = 3,
                 PoolSettings = new PoolSetting[] //which can read from setting files.
                 {
                     new PoolSetting(){WorkerUnitCount = 3,Group = "groupA" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"},

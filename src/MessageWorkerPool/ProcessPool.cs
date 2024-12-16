@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -39,7 +40,8 @@ namespace MessageWorkerPool
             this._poolSetting = poolSetting;
             LoggerFactory = loggerFactory ?? new NullLoggerFactory();
             this._logger = LoggerFactory.CreateLogger<ProcessPool>();
-            _taskQueue = new BlockingCollection<MessageTask>(Utilities.MaxPowerOfTwo(poolSetting.WorkerUnitCount));
+            int size = Utilities.MaxPowerOfTwo(poolSetting.WorkerUnitCount);
+            _taskQueue = new BlockingCollection<MessageTask>(size);
             InitPool();
         }
 
@@ -101,12 +103,21 @@ namespace MessageWorkerPool
 
         public Task<bool> AddTaskAsync(MessageTask task, CancellationToken token)
         {
-            bool result = false; 
-            if (!_finish && _taskQueue.TryAdd(task, Timeout.InfiniteTimeSpan))
+            if (_finish || token.IsCancellationRequested)
             {
-                result = true;
+                return Task.FromResult(false);
             }
-            return Task.FromResult(result);
+
+            try
+            {
+                return Task.FromResult(_taskQueue.TryAdd(task, -1, token));
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Cancellation requested before adding task!");
+                // Handle cancellation gracefully
+                return Task.FromResult(false);
+            }
         }
 
         private void ProcessHandler(IProcessWrapper process)
