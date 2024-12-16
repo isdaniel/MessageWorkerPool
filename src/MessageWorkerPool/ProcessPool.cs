@@ -1,4 +1,6 @@
+using MessageWorkerPool.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -16,21 +18,18 @@ namespace MessageWorkerPool
     {
         public const string CLOSED_SIGNAL = "quit";
         private readonly PoolSetting _poolSetting;
+        internal ILoggerFactory LoggerFactory { get; }
         private readonly ILogger<ProcessPool> _logger;
         private readonly BlockingCollection<MessageTask> _taskQueue;
         internal readonly List<Task> _workers = new List<Task>();
-        public int ProcessCount { get; private set; }
+        public int ProcessCount { get; }
         private volatile bool _finish = false;
         public bool IsFinish  => _finish;
-
-        internal readonly List<IProcessWrapper> _processList = new List<IProcessWrapper>();
+        private readonly List<IProcessWrapper> _processList = new List<IProcessWrapper>();
 
         public ProcessPool(PoolSetting poolSetting, ILoggerFactory loggerFactory)
         {
             if (poolSetting == null)
-                throw new NullReferenceException(nameof(poolSetting));
-
-            if (loggerFactory == null)
                 throw new NullReferenceException(nameof(poolSetting));
 
             if (string.IsNullOrEmpty(poolSetting.CommnadLine))
@@ -38,8 +37,9 @@ namespace MessageWorkerPool
 
             ProcessCount = poolSetting.WorkerUnitCount;
             this._poolSetting = poolSetting;
-            this._logger = loggerFactory.CreateLogger<ProcessPool>();
-            _taskQueue = new BlockingCollection<MessageTask>(poolSetting.WorkerUnitCount);
+            LoggerFactory = loggerFactory ?? new NullLoggerFactory();
+            this._logger = LoggerFactory.CreateLogger<ProcessPool>();
+            _taskQueue = new BlockingCollection<MessageTask>(Utilities.MaxPowerOfTwo(poolSetting.WorkerUnitCount));
             InitPool();
         }
 
@@ -51,7 +51,6 @@ namespace MessageWorkerPool
                 this._workers.Add(Task.Run(() =>
                 {
                     ProcessHandler(process);
-
                     //signle to close process
                     process.StandardInput.WriteLine(CLOSED_SIGNAL);
                     int pid = process.Id;
@@ -100,13 +99,11 @@ namespace MessageWorkerPool
             return process;
         }
 
-
-        public Task<bool> AddTaskAsync(MessageTask task)
+        public Task<bool> AddTaskAsync(MessageTask task, CancellationToken token)
         {
             bool result = false; 
-            if (!_finish && !_taskQueue.IsCompleted)
+            if (!_finish && _taskQueue.TryAdd(task, Timeout.InfiniteTimeSpan))
             {
-                _taskQueue.Add(task);
                 result = true;
             }
             return Task.FromResult(result);

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
 namespace MessageWorkerPool.RabbitMq
@@ -35,7 +37,7 @@ namespace MessageWorkerPool.RabbitMq
             else
             {
                 Logger.LogDebug($"[correlationId:{correlationId}] group: {group}, received message:{message}");
-                return await workerPool.AddTaskAsync(new MessageTask(message, group, correlationId, Logger)).ConfigureAwait(false);
+                return await workerPool.AddTaskAsync(new MessageTask(message, group, correlationId, Logger), token).ConfigureAwait(false);
             }
         }
 

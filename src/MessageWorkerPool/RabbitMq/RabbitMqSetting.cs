@@ -38,6 +38,8 @@ namespace MessageWorkerPool.RabbitMq
         /// default value is 1 (0 if unlimited)
         /// </summary>
         public ushort PrefetchTaskCount { get; set; } = 1;
+        public ushort ConnectionRetryCount { get; set; } = 3;
+        public TimeSpan ConnectionRetryTimeout { get; set; } = TimeSpan.FromSeconds(5);
         public PoolSetting[] PoolSettings { get; set; }
     }
 }

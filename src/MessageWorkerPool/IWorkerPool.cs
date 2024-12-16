@@ -6,7 +6,7 @@ namespace MessageWorkerPool
 {
     public interface IWorkerPool
     {
-        Task<bool> AddTaskAsync(MessageTask task);
+        Task<bool> AddTaskAsync(MessageTask task, CancellationToken token);
         Task WaitFinishedAsync(CancellationToken token);
     }
 }

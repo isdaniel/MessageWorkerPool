@@ -33,7 +33,7 @@ namespace MessageWorkerPool
             //    _logger.LogInformation("Cancel!");
             //};
 
-            _worker.CreateWorkByUnit(token);
+            _worker.InitConnectionAsync(token);
             token.WaitHandle.WaitOne();
             _logger.LogInformation("ExecuteAsync Finish!");
             return Task.CompletedTask;

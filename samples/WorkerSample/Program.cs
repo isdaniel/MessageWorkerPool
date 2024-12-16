@@ -27,7 +27,7 @@ public class Program
                 Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort) 5672,
-                PrefetchTaskCount = ushort.TryParse(Environment.GetEnvironmentVariable("PREFETCHTASKCOUNT"), out ushort result) ? result : (ushort) 1,
+                PrefetchTaskCount = 5,
                 PoolSettings = new PoolSetting[] //which can read from setting files.
                 {
                     new PoolSetting(){WorkerUnitCount = 3,Group = "groupA" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"},

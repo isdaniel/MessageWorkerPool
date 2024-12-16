@@ -10,6 +10,7 @@ using MessageWorkerPool.Test.Utility;
 using FluentAssertions.Common;
 using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MessageWorkerPool.Test
 {
@@ -42,7 +43,11 @@ namespace MessageWorkerPool.Test
 
         private TestProcessPool CreateProcessPool(PoolSetting setting)
         {
-            return new TestProcessPool(setting, _loggerFactoryMock.Object);
+            return CreateProcessPool(setting, _loggerFactoryMock.Object);
+        }
+        private TestProcessPool CreateProcessPool(PoolSetting setting,ILoggerFactory loggerFactory)
+        {
+            return new TestProcessPool(setting, loggerFactory);
         }
 
         [Fact]
@@ -60,7 +65,7 @@ namespace MessageWorkerPool.Test
 
             var messageTask = new MessageTask("Test Task",null,null,null);
 
-            bool result = await processPool.AddTaskAsync(messageTask);
+            bool result = await processPool.AddTaskAsync(messageTask, CancellationToken.None);
 
             result.Should().BeTrue();
         }
@@ -73,7 +78,7 @@ namespace MessageWorkerPool.Test
             await processPool.WaitFinishedAsync(CancellationToken.None);
             
             var messageTask = new MessageTask("Test Task", null, null, null);
-            bool result = await processPool.AddTaskAsync(messageTask);
+            bool result = await processPool.AddTaskAsync(messageTask, CancellationToken.None);
 
             result.Should().BeFalse();
         }
@@ -132,7 +137,7 @@ namespace MessageWorkerPool.Test
             // Act
             var messageTask = new MessageTask("Test Task", null, null, null);
             var actJson = JsonSerializer.Serialize(messageTask);
-            await processPool.AddTaskAsync(messageTask);
+            await processPool.AddTaskAsync(messageTask, CancellationToken.None);
             await processPool.WaitFinishedAsync(CancellationToken.None);
             
             // Assert
@@ -146,13 +151,14 @@ namespace MessageWorkerPool.Test
         [Fact]
         public void Constructor_ShouldThrowNullReferenceException_WhenLogFactoryIsNull()
         {
-            Action act = () => new ProcessPool(new PoolSetting
+            var processPool = CreateProcessPool(new PoolSetting
             {
                 WorkerUnitCount = 1,
                 CommnadLine = "dummyCommand",
                 Arguments = "--dummy"
-            }, null);
-            act.Should().Throw<NullReferenceException>();
+            },null);
+
+            processPool.LoggerFactory.Should().BeOfType<NullLoggerFactory>();
         }
     }
 }

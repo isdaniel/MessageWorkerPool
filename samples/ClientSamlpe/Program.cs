@@ -27,7 +27,7 @@ namespace ClientSamlpe
                 Console.WriteLine($"Message : {content.Message} group : {content.Group}");
 
                 //delay mock logical
-                Thread.Sleep(1000);
+                Thread.Sleep(1500);
             }
 
         }

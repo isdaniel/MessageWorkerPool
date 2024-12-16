@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -18,9 +20,9 @@ namespace MessageWorkerPool.RabbitMq
     {
         public RabbitMqSetting Setting { get; }
         protected AsyncEventHandler<BasicDeliverEventArgs> ReceiveEvent;
+        private AsyncEventingBasicConsumer _consumer;
         private IConnection _conn;
         private IModel _channle;
-        private AsyncEventingBasicConsumer _consumer;
         protected ILogger<RabbitMqWorkerBase> Logger { get; }
         public RabbitMqWorkerBase(
             RabbitMqSetting setting,
@@ -33,34 +35,25 @@ namespace MessageWorkerPool.RabbitMq
         }
 
         /// <summary>
-        /// 在 subclass 可以返回結果，來代表是否做完此訊息
+        /// Process incoming messages, sub-class can implement this hock method
         /// </summary>
         /// <param name="args"></param>
         /// <returns></returns>
         public abstract Task<bool> ExecuteAsync(BasicDeliverEventArgs args, CancellationToken token);
 
-        public void CreateWorkByUnit(CancellationToken token)
+        public virtual async Task InitConnectionAsync(CancellationToken token)
         {
-            try
+            var _connFactory = new ConnectionFactory
             {
-                var _connFactory = new ConnectionFactory
-                {
-                    Uri = Setting.GetUri(),
-                    DispatchConsumersAsync = true // async mode
-                };
+                Uri = Setting.GetUri(),
+                DispatchConsumersAsync = true // async mode
+            };
 
-                _conn = _connFactory.CreateConnection();
-                _channle = _conn.CreateModel();
-                _consumer = new AsyncEventingBasicConsumer(_channle);
-                _channle.BasicQos(0, Setting.PrefetchTaskCount, true);
-                _channle.BasicConsume(Setting.QueueName, false, _consumer);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogCritical("create connection/channle fail!", ex);
-                throw;
-            }
-
+            _conn = _connFactory.CreateConnection();
+            _channle = _conn.CreateModel();
+            _consumer = new AsyncEventingBasicConsumer(_channle);
+            _channle.BasicQos(0, Setting.PrefetchTaskCount, true);
+            _channle.BasicConsume(Setting.QueueName, false, _consumer);
             ReceiveEvent = async (sender, e) =>
             {
                 try
@@ -80,6 +73,11 @@ namespace MessageWorkerPool.RabbitMq
             };
             _consumer.Received += ReceiveEvent;
         }
+
+        //private void BindingEvent(CancellationToken token)
+        //{
+            
+        //}
 
         /// <summary>
         /// provide hock for sub-class implement 
