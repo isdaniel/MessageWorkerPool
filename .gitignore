@@ -254,3 +254,4 @@ artifacts/
 *.sln.ide
 
 */ProcessBin/*
+*/WorkerSample/lib*

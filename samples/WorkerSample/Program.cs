@@ -6,10 +6,16 @@ using Microsoft.Extensions.Logging;
 using MessageWorkerPool.Extensions;
 using System;
 using System.Security.Cryptography;
+using System.IO.Pipes;
+using System.Diagnostics;
+using System.Threading.Tasks;
+using System.IO;
+using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging.Console;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         CreateHostBuilder(args).Build().Run();
     }
@@ -19,20 +25,22 @@ public class Program
             .ConfigureLogging(logging =>
             {
                 logging.ClearProviders();
-                logging.AddConsole();
-            }).AddRabbiMqWorkerPool(new RabbitMqSetting
+                logging.AddConsole(options => {
+                    options.FormatterName = ConsoleFormatterNames.Simple;
+                });
+                logging.Services.Configure<SimpleConsoleFormatterOptions>(options => {
+                    options.IncludeScopes = true;
+                    options.TimestampFormat = " yyyy-MM-dd HH:mm:ss ";
+                });
+            }).AddRabbitMqWorkerPool(new RabbitMqSetting
             {
                 QueueName = Environment.GetEnvironmentVariable("QUEUENAME"),
                 UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
                 Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort) 5672,
-                PrefetchTaskCount = 3,
-                PoolSettings = new PoolSetting[] //which can read from setting files.
-                {
-                    new PoolSetting(){WorkerUnitCount = 3,Group = "groupA" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"},
-                    new PoolSetting(){WorkerUnitCount = 3,Group = "groupB" , CommnadLine = "dotnet",Arguments = @"./ProcessBin/ClientSamlpe.dll"}
-                }
-            });
+                PrefetchTaskCount = 3
+            }, new WorkerPoolSetting() { WorkerUnitCount = 9, CommnadLine = "dotnet", Arguments = @"./ProcessBin/WorkerProcessSample.dll" }
+            );
 
 }

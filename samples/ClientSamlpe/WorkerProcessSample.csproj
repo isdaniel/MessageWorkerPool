@@ -1,12 +1,18 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputPath>../ProcessBin</OutputPath>
 	  <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <ImplicitUsings>false</ImplicitUsings>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="MessageWorkerPool">
+      <HintPath>..\WorkerSample\lib\MessageWorkerPool.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 </Project>

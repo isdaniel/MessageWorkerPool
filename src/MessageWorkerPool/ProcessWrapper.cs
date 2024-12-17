@@ -37,6 +37,11 @@ namespace MessageWorkerPool
             _process.Close();
         }
 
+        public void Dispose()
+        {
+            _process.Dispose();
+        }
+
         public event DataReceivedEventHandler ErrorDataReceived;
     }
 }

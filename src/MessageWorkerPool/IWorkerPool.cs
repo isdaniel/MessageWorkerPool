@@ -1,12 +1,13 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace MessageWorkerPool
 {
-    public interface IWorkerPool
+    public interface IWorkerPool : IDisposable
     {
-        Task<bool> AddTaskAsync(MessageTask task, CancellationToken token);
+        Task InitPoolAsync(CancellationToken token);
         Task WaitFinishedAsync(CancellationToken token);
     }
 }
