@@ -24,7 +24,6 @@ namespace MessageWorkerPool
         protected readonly WorkerPoolSetting _workerSetting;
         protected readonly ILogger<WorkerPoolBase> _logger;
         protected readonly ILoggerFactory _loggerFactory;
-        internal readonly List<Task> _workerTasks = new List<Task>();
         private bool _isClosed = false;
         public bool IsClosed  => _isClosed;
         protected readonly List<IWorker> Workers = new List<IWorker>();
@@ -49,10 +48,7 @@ namespace MessageWorkerPool
             for (int i = 0; i < ProcessCount; i++)
             {
                 IWorker worker = GetWorker();
-                this._workerTasks.Add(Task.Run(async () =>
-                {
-                    await worker.InitWorkerAsync(token);
-                }));
+                await worker.InitWorkerAsync(token);
                 Workers.Add(worker);
             }
 
@@ -66,7 +62,6 @@ namespace MessageWorkerPool
                 await worker.GracefulShutDownAsync(token);
             }
 
-            await Task.WhenAll(_workerTasks.ToArray());
             Dispose();   
             _isClosed = true;
         }
