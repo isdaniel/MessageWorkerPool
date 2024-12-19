@@ -33,7 +33,7 @@ services:
       - net-mq
   workersample:
     build: ./samples
-    # stop_grace_period: 20s
+    stop_grace_period: 200s
     # stop_signal: SIGINT
     #image: dog830228/mq_poc-nodeworker
     environment:

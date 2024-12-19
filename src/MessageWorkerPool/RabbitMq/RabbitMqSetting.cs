@@ -2,7 +2,15 @@ using System;
 
 namespace MessageWorkerPool.RabbitMq
 {
-    public class RabbitMqSetting
+    public abstract class MqSettingBase
+    {
+
+        public abstract string GetConnectionString();
+        public ushort ConnectionRetryCount { get; set; } = 3;
+        public TimeSpan ConnectionRetryTimeout { get; set; } = TimeSpan.FromSeconds(5);
+    }
+
+    public class RabbitMqSetting : MqSettingBase
     {
         /// <summary>
         /// The uri to use for the connection.
@@ -10,12 +18,17 @@ namespace MessageWorkerPool.RabbitMq
         /// <returns></returns>
         public Uri GetUri()
         {
-            return new Uri($"amqp://{UserName}:{Password}@{HostName}:{Port}");
+            return new Uri(GetConnectionString());
         }
 
         public string GetUriWithoutPassword()
         {
             return $"amqp://{UserName}:*******@{HostName}:{Port}";
+        }
+
+        public override string GetConnectionString()
+        {
+            return $"amqp://{UserName}:{Password}@{HostName}:{Port}";
         }
 
         /// <summary>
@@ -38,6 +51,5 @@ namespace MessageWorkerPool.RabbitMq
         /// default value is 1 (0 if unlimited)
         /// </summary>
         public ushort PrefetchTaskCount { get; set; } = 1;
-        public PoolSetting[] PoolSettings { get; set; }
     }
 }

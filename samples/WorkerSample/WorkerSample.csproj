@@ -6,7 +6,6 @@
 
 
 	<ItemGroup>
-		<PackageReference Include="MessageWorkerPool" Version="0.0.0.3" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
@@ -16,11 +15,11 @@
 	</ItemGroup>
 
 
-	<!--<ItemGroup>
+	<ItemGroup>
 	  <Reference Include="MessageWorkerPool">
 	    <HintPath>lib\MessageWorkerPool.dll</HintPath>
 	  </Reference>
-	</ItemGroup>-->
+	</ItemGroup>
 
 
 </Project>

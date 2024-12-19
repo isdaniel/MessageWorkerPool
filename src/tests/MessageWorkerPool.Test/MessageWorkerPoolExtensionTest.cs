@@ -9,46 +9,50 @@ namespace MessageWorkerPool.Test
     public class MessageWorkerPoolExtensionTest
     {
         [Fact]
-        public void AddRabbitMqWorkerPool_ShouldRegisterRabbitMqSettingInServiceProvider()
+        public void AddRabbitMqWorkerPool_ShouldResolveRegisteredServicesAndSettings()
         {
-            var rabbitMQSetting = new RabbitMqSetting(){
+            var rabbitMQSetting = new RabbitMqSetting()
+            {
                 HostName = "localhost",
                 Password = "abcd1234",
                 Port = 5672,
                 QueueName = "queue1",
                 UserName = "user1",
-                PrefetchTaskCount = 1,
-                PoolSettings = new PoolSetting []{
-                    new PoolSetting(){
-                        Arguments = "client.dll",
-                        Group = "groupA",
-                        WorkerUnitCount = 1,
-                        CommnadLine = "dotnet"
-                    }
-                }
+                PrefetchTaskCount = 1
+            };
+
+            var workPoolSetting = new WorkerPoolSetting() { 
+                Arguments = "dummy_Arguments",
+                CommnadLine = "dummy_CommnadLine",
+                WorkerUnitCount = 5,
+
             };
 
             var host = new HostBuilder()
                 .ConfigureServices(services =>
                 {
                     services.AddLogging(); // Add logging
-                    services.AddRabbiMqWorkerPool(rabbitMQSetting); // Register the worker pool
+                    services.AddRabbitMqWorkerPool(rabbitMQSetting, workPoolSetting); // Register the worker pool
                 }).Build();
 
             var serviceProvider = host.Services;
 
-            var expectSetting = serviceProvider.GetService<RabbitMqSetting>();
+            var expectSetting = serviceProvider.GetService<MqSettingBase>();
+            var workerSetting = serviceProvider.GetService<WorkerPoolSetting[]>();
+
+            workerSetting.Should().NotBeNull();
+            workerSetting.Length.Should().Be(1); // Assuming one setting is registered
+            workerSetting[0].Arguments.Should().Be("dummy_Arguments");
+            workerSetting[0].CommnadLine.Should().Be("dummy_CommnadLine");
+            workerSetting[0].WorkerUnitCount.Should().Be(5);
+            workerSetting.Should().NotBeNull();
 
             expectSetting.Should().NotBeNull();
             expectSetting.Should().Be(rabbitMQSetting);
 
-            var worker = serviceProvider.GetService<IWorker>();
-            worker.Should().NotBeNull();
-            worker.Should().BeOfType<RabbitMqGroupWorker>();
-
-            var poolFactory = serviceProvider.GetService<IPoolFactory>();
-            poolFactory.Should().NotBeNull();
-            poolFactory.Should().BeOfType<WorkerPoolFactory>();
+            var workerFactory = serviceProvider.GetService<WorkerPoolFacorty>();
+            workerFactory.Should().NotBeNull();
+            workerFactory.Should().BeOfType<WorkerPoolFacorty>();
 
             var hostedService = serviceProvider.GetService<IHostedService>();
             hostedService.Should().NotBeNull();
@@ -57,17 +61,27 @@ namespace MessageWorkerPool.Test
 
 
         [Fact]
+        public void AddRabbitMqWorkerPool_ShouldThrowArgumentNullException_WhenBothSettingsAreNull()
+        {
+            var services = new ServiceCollection();
+            var rabbitMQSetting = default(RabbitMqSetting);
+
+            Action act = () => services.AddRabbitMqWorkerPool(null, default(WorkerPoolSetting));
+            act.Should().Throw<ArgumentNullException>();
+        }
+
+        [Fact]
         public void AddRabbitMqWorkerPool_ShouldThrowArgumentNullException_WhenRabbitMqSettingIsNull()
         {
             var services = new ServiceCollection();
             var rabbitMQSetting = default(RabbitMqSetting);
 
-            Action act = () => services.AddRabbiMqWorkerPool(rabbitMQSetting);
+            Action act = () => services.AddRabbitMqWorkerPool(rabbitMQSetting, default(WorkerPoolSetting));
             act.Should().Throw<ArgumentNullException>();
         }
 
         [Fact]
-        public void AddRabbiMqWorkerPool_ShouldRegisterRabbitMqSettingAndServices()
+        public void AddRabbitMqWorkerPool_ShouldThrowArgumentNullException_WhenHostBuilderIsNull()
         {
             // Arrange
             var rabbitMqSetting = new RabbitMqSetting
@@ -78,36 +92,26 @@ namespace MessageWorkerPool.Test
                 QueueName = "queue1",
                 UserName = "user1",
                 PrefetchTaskCount = 1,
-                PoolSettings = new PoolSetting[]
-                {
-                new PoolSetting
-                {
-                    Arguments = "client.dll",
-                    Group = "groupA",
-                    WorkerUnitCount = 1,
-                    CommnadLine = "dotnet"
-                }
-                }
             };
 
             var hostBuilder = new HostBuilder();
 
             // Act
-            using var host = hostBuilder.AddRabbiMqWorkerPool(rabbitMqSetting).Build();
+            using var host = hostBuilder.AddRabbitMqWorkerPool(rabbitMqSetting, new WorkerPoolSetting() {
+                Arguments = "dummy_Arguments",
+                CommnadLine = "dummy_CommnadLine",
+                WorkerUnitCount = 5,
+            }).Build();
             var serviceProvider = host.Services;
 
             // Assert
-            var resolvedSetting = serviceProvider.GetService<RabbitMqSetting>();
+            var resolvedSetting = serviceProvider.GetService<MqSettingBase>();
             resolvedSetting.Should().NotBeNull();
             resolvedSetting.Should().Be(rabbitMqSetting);
 
-            var worker = serviceProvider.GetService<IWorker>();
-            worker.Should().NotBeNull();
-            worker.Should().BeOfType<RabbitMqGroupWorker>();
-
-            var poolFactory = serviceProvider.GetService<IPoolFactory>();
+            var poolFactory = serviceProvider.GetService<WorkerPoolFacorty>();
             poolFactory.Should().NotBeNull();
-            poolFactory.Should().BeOfType<WorkerPoolFactory>();
+            poolFactory.Should().BeOfType<WorkerPoolFacorty>();
 
             var hostedService = serviceProvider.GetService<IHostedService>();
             hostedService.Should().NotBeNull();
@@ -115,14 +119,14 @@ namespace MessageWorkerPool.Test
         }
 
         [Fact]
-        public void AddRabbiMqWorkerPool_ShouldThrowArgumentNullException_WhenHostBuilderIsNull()
+        public void AddRabbitMqWorkerPool_ShouldThrowArgumentNullException_WhenRabbitMqSettingIsNullInHostBuilder()
         {
             // Arrange
             IHostBuilder hostBuilder = null;
             var rabbitMqSetting = new RabbitMqSetting();
 
             // Act
-            Action act = () => hostBuilder.AddRabbiMqWorkerPool(rabbitMqSetting).Build();
+            Action act = () => hostBuilder.AddRabbitMqWorkerPool(rabbitMqSetting, new WorkerPoolSetting()).Build();
 
             // Assert
             act.Should().Throw<ArgumentNullException>()
@@ -137,7 +141,7 @@ namespace MessageWorkerPool.Test
             RabbitMqSetting rabbitMqSetting = null;
 
             // Act
-            Action act = () => hostBuilder.AddRabbiMqWorkerPool(rabbitMqSetting).Build();
+            Action act = () => hostBuilder.AddRabbitMqWorkerPool(rabbitMqSetting, new WorkerPoolSetting()).Build();
 
             // Assert
             act.Should().Throw<ArgumentNullException>()

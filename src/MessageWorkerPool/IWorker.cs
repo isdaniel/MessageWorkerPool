@@ -1,12 +1,13 @@
-﻿using System.Threading;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 using RabbitMQ.Client.Events;
 
 namespace MessageWorkerPool
 {
-    public interface IWorker
+    public interface IWorker : IDisposable
     {
-        void CreateWorkByUnit(CancellationToken token);
+        Task InitWorkerAsync(CancellationToken token);
         Task GracefulShutDownAsync(CancellationToken token);
     }
 }

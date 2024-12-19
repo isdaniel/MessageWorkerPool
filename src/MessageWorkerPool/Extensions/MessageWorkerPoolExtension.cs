@@ -5,12 +5,24 @@ using Microsoft.Extensions.Logging;
 using MessageWorkerPool.RabbitMq;
 using System;
 using System.Reflection;
+using System.Linq;
 
 namespace MessageWorkerPool.Extensions
 {
     public static class MessageWorkerPoolExtension
     {
-        public static IServiceCollection AddRabbiMqWorkerPool(this IServiceCollection services, RabbitMqSetting rabbitMqSetting)
+        public static IHostBuilder AddRabbitMqWorkerPool(this IHostBuilder hostBuilder, RabbitMqSetting rabbitMqSetting, WorkerPoolSetting[] workerSettings)
+        {
+            if (hostBuilder == null)
+                throw new ArgumentNullException(nameof(hostBuilder));
+
+            return hostBuilder.ConfigureServices((service) =>
+            {
+                AddRabbitMqWorkerPool(service, rabbitMqSetting, workerSettings);
+            });
+        }
+
+        public static IServiceCollection AddRabbitMqWorkerPool(this IServiceCollection services, RabbitMqSetting rabbitMqSetting, WorkerPoolSetting[] workerSettings)
         {
             if (services == null)
                 throw new ArgumentNullException(nameof(services));
@@ -18,23 +30,31 @@ namespace MessageWorkerPool.Extensions
             if (rabbitMqSetting == null)
                 throw new ArgumentNullException(nameof(rabbitMqSetting));
 
+            if (workerSettings == null)
+                throw new ArgumentNullException(nameof(workerSettings));
+
+            if (workerSettings.Any(x => x == null))
+                throw new InvalidOperationException("workerSettings contains null setting.");
+
+            services.AddSingleton<MqSettingBase, RabbitMqSetting>(provider =>
+            {
+                return rabbitMqSetting;
+            });
             services.AddHostedService<WorkerPoolService>();
-            services.TryAddSingleton<IWorker, RabbitMqGroupWorker>();
-            services.TryAddSingleton<IPoolFactory, WorkerPoolFactory>();
-            services.AddSingleton(rabbitMqSetting);
+            services.AddSingleton(workerSettings);
+            services.AddTransient<WorkerPoolFacorty>();
 
             return services;
         }
 
-        public static IHostBuilder AddRabbiMqWorkerPool(this IHostBuilder hostBuilder, RabbitMqSetting rabbitMqSetting)
+        public static IServiceCollection AddRabbitMqWorkerPool(this IServiceCollection services, RabbitMqSetting rabbitMqSetting, WorkerPoolSetting workerSettings)
         {
-            if (hostBuilder == null)
-                throw new ArgumentNullException(nameof(hostBuilder));
+            return AddRabbitMqWorkerPool(services, rabbitMqSetting, new WorkerPoolSetting[] { workerSettings});
+        }
 
-            return hostBuilder.ConfigureServices((service) =>
-            {
-                AddRabbiMqWorkerPool(service,rabbitMqSetting);
-            });
+        public static IHostBuilder AddRabbitMqWorkerPool(this IHostBuilder hostBuilder, RabbitMqSetting rabbitMqSetting, WorkerPoolSetting workerSettings)
+        {
+            return AddRabbitMqWorkerPool(hostBuilder, rabbitMqSetting, new WorkerPoolSetting[] { workerSettings});
         }
     }
 }
