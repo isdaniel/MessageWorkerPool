@@ -25,7 +25,7 @@ namespace MessageWorkerPool.RabbitMq
         protected AsyncEventHandler<BasicDeliverEventArgs> ReceiveEvent;
         private AsyncEventingBasicConsumer _consumer;
         private IModel _channle;
-        private IProcessWrapper _process;
+        internal IProcessWrapper Process { get; private set; }
         private readonly WorkerPoolSetting _workerSetting;
         private readonly ILoggerFactory _loggerFactory;
         private readonly HashSet<WorkerStatus> _stoppingStatus = new HashSet<WorkerStatus>(){
@@ -45,7 +45,7 @@ namespace MessageWorkerPool.RabbitMq
         /// Worker status
         /// </summary>
         public WorkerStatus Status { get; private set; } = WorkerStatus.WaitForInit;
-        protected ILogger<RabbitMqWorker> _logger { get; }
+        protected ILogger<RabbitMqWorker> Logger { get; }
 
         private bool _disposed = false;
         public RabbitMqWorker(
@@ -54,17 +54,39 @@ namespace MessageWorkerPool.RabbitMq
             IModel channle,
             ILoggerFactory loggerFactory)
         {
+            if (workerSetting == null)
+                throw new NullReferenceException(nameof(workerSetting));
+
+            if (setting == null)
+                throw new NullReferenceException(nameof(setting));
+
             _loggerFactory = loggerFactory;
-            _logger = _loggerFactory.CreateLogger<RabbitMqWorker>();
+            Logger = _loggerFactory.CreateLogger<RabbitMqWorker>();
             Setting = setting;
             _workerSetting = workerSetting;
             _channle = channle;
-            _logger.LogInformation($"RabbitMq connection string: {setting.GetUriWithoutPassword()}");
+            Logger.LogInformation($"RabbitMq connection string: {setting.GetUriWithoutPassword()}");
         }
 
-        private IProcessWrapper SetUpProcess()
+        protected virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo) { 
+        
+            IProcessWrapper process = new ProcessWrapper(new Process
+            {
+                StartInfo = processStartInfo
+            });
+
+            return process;
+        }
+
+        /// <summary>
+        /// Use standard input/output to communicate between worker Pool and worker.
+        /// </summary>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public virtual async Task InitWorkerAsync(CancellationToken token)
         {
-            IProcessWrapper process = CreateProcess(new ProcessStartInfo()
+            _consumer = new AsyncEventingBasicConsumer(_channle);
+            Process = CreateProcess(new ProcessStartInfo()
             {
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
@@ -76,58 +98,26 @@ namespace MessageWorkerPool.RabbitMq
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8
             });
+            StartProcess();
 
-            process.Start();
-            process.BeginErrorReadLine();
-            process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                {
-                    _logger.LogError($"Procees Error Information:{e.Data}");
-                }
-            };
-
-            return process;
-        }
-
-        internal virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo)
-        {
-            var process = new Process
-            {
-                StartInfo = processStartInfo
-            };
-
-            return new ProcessWrapper(process);
-        }
-        /// <summary>
-        /// Use standard input/output to communicate between worker Pool and worker.
-        /// </summary>
-        /// <param name="token"></param>
-        /// <returns></returns>
-        public virtual async Task InitWorkerAsync(CancellationToken token)
-        {
-            _consumer = new AsyncEventingBasicConsumer(_channle);
-            _process = SetUpProcess();
-            Status = WorkerStatus.Running;
-
-            using (_logger.BeginScope($"[Pid: {_process.Id}]"))
+            using (Logger.BeginScope($"[Pid: {Process.Id}]"))
             {
 
-                _logger.LogInformation($"Setup Process!");
+                Logger.LogInformation($"Setup Process!");
                 ReceiveEvent = async (sender, e) =>
                 {
                     var correlationId = e.BasicProperties.CorrelationId;
 
-                    using (_logger.BeginScope($"[Pid: {_process.Id}][CorrelationId: {correlationId}]"))
+                    using (Logger.BeginScope($"[Pid: {Process.Id}][CorrelationId: {correlationId}]"))
                     {
                         if (_stoppingStatus.Contains(Status))
                         {
                             _channle.BasicNack(e.DeliveryTag, false, true);
-                            _logger.LogWarning($"doing GracefulShutDown reject message!");
+                            Logger.LogWarning($"doing GracefulShutDown reject message!");
                         }
 
                         var message = Encoding.UTF8.GetString(e.Body.Span.ToArray());
-                        _logger.LogInformation($"received message:{message}");
+                        Logger.LogInformation($"received message:{message}");
                         await ProcessingMessage(e, message, correlationId).ConfigureAwait(false);
                     }
 
@@ -136,10 +126,24 @@ namespace MessageWorkerPool.RabbitMq
                 _consumer.Received += ReceiveEvent;
                 _channle.BasicQos(0, Setting.PrefetchTaskCount, true);
                 _channle.BasicConsume(Setting.QueueName, false, _consumer);
-                _logger.LogInformation($"Worker running!");
+                Logger.LogInformation($"Worker running!");
             }
 
             await Task.CompletedTask;
+        }
+
+        private void StartProcess()
+        {
+            Process.Start();
+            Process.BeginErrorReadLine();
+            Process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    Logger.LogError($"Procees Error Information:{e.Data}");
+                }
+            };
+            Status = WorkerStatus.Running;
         }
 
         /// <summary>
@@ -158,7 +162,7 @@ namespace MessageWorkerPool.RabbitMq
                     CorrelationId = correlationId
                 };
 
-                await _process.StandardInput.WriteLineAsync(task.ToJsonMessage()).ConfigureAwait(false);
+                await Process.StandardInput.WriteLineAsync(task.ToJsonMessage()).ConfigureAwait(false);
 
                 var outputTask = new MessageOutputTask() {
                     Stauts = MessageStatus.IGNORE_MESSAGE
@@ -168,8 +172,8 @@ namespace MessageWorkerPool.RabbitMq
                 //use protocol by JSON format.
                 do
                 {
-                    string responseJson = await _process.StandardOutput.ReadLineAsync().ConfigureAwait(false);
-                    _logger.LogInformation($"message from worker process:{responseJson}");
+                    string responseJson = await Process.StandardOutput.ReadLineAsync().ConfigureAwait(false);
+                    Logger.LogInformation($"message from worker process:{responseJson}");
                     if (!string.IsNullOrEmpty(responseJson))
                     {
                         try
@@ -178,11 +182,11 @@ namespace MessageWorkerPool.RabbitMq
                         }
                         catch (JsonException ex)
                         {
-                            _logger.LogError(ex, "MessageOutputTask Json Parsing error");
+                            Logger.LogError(ex, "MessageOutputTask Json Parsing error");
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "Json Parsing Unexpect Error");
+                            Logger.LogError(ex, "Json Parsing Unexpect Error");
                             throw;
                         }
                     }
@@ -194,7 +198,7 @@ namespace MessageWorkerPool.RabbitMq
             catch (Exception ex)
             {
                 _channle.BasicNack(e.DeliveryTag, false, true);
-                _logger.LogWarning(ex, "processing message occur exception!");
+                Logger.LogWarning(ex, "processing message occur exception!");
             }
         }
 
@@ -209,7 +213,7 @@ namespace MessageWorkerPool.RabbitMq
 
         public async Task GracefulShutDownAsync(CancellationToken token)
         {
-            _logger.LogInformation("Exeuceting GracefulShutDownAsync!");
+            Logger.LogInformation("Exeuceting GracefulShutDownAsync!");
             Status = WorkerStatus.Stopping;
             _consumer.Received -= ReceiveEvent;
             ReceiveEvent = null;
@@ -217,17 +221,17 @@ namespace MessageWorkerPool.RabbitMq
             Status = WorkerStatus.Stopped;
             await GracefulReleaseAsync(token);
             this.Dispose();
-            _logger.LogInformation("RabbitMQ Conn Closed!!!!");
+            Logger.LogInformation("RabbitMQ Conn Closed!!!!");
         }
 
         private void CloseProcess()
         {
             //Sending close message
-            _process.StandardInput.WriteLine(MessageCommunicate.CLOSED_SIGNAL);
-            using (_logger.BeginScope($"[Pid: {_process.Id}]")) {
-                _logger.LogInformation($"Begin WaitForExit free resource....");
-                _process.WaitForExit();
-                _logger.LogInformation($"End WaitForExit and free resource....");
+            Process.StandardInput.WriteLine(MessageCommunicate.CLOSED_SIGNAL);
+            using (Logger.BeginScope($"[Pid: {Process.Id}]")) {
+                Logger.LogInformation($"Begin WaitForExit free resource....");
+                Process.WaitForExit();
+                Logger.LogInformation($"End WaitForExit and free resource....");
             }
         }
 
@@ -243,11 +247,11 @@ namespace MessageWorkerPool.RabbitMq
             }
 
             if (disposing) {
-                if (_process != null)
+                if (Process != null)
                 {
-                    _process.Dispose();
-                    _process.Close();
-                    _process = null;
+                    Process.Dispose();
+                    Process.Close();
+                    Process = null;
                 }
             }
 
