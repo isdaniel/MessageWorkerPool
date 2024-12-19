@@ -252,6 +252,5 @@ artifacts/
 *.userprefs
 *DS_Store
 *.sln.ide
-
-*/ProcessBin/*
-*/WorkerSample/lib*
+*/dotnet_samples/ProcessBin/*
+*/dotnet_samples/WorkerSample/lib*

@@ -32,7 +32,8 @@ services:
     networks:
       - net-mq
   workersample:
-    build: ./samples
+    #build: ./samples/python_sample
+    build: ./samples/dotnet_samples
     stop_grace_period: 200s
     # stop_signal: SIGINT
     #image: dog830228/mq_poc-nodeworker

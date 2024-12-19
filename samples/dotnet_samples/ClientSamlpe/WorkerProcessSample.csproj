@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -11,8 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="MessageWorkerPool">
-      <HintPath>..\WorkerSample\lib\MessageWorkerPool.dll</HintPath>
-    </Reference>
+    <PackageReference Include="MessageWorkerPool" Version="0.0.0.4" />
   </ItemGroup>
+
 </Project>
