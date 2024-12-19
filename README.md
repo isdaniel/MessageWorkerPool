@@ -6,13 +6,9 @@
 
 ## Introduction
 
-`MessageWorkerPool` is a C# library designed to manage a pool of worker threads that process messages concurrently. This helps in efficiently handling tasks in a multi-threaded environment, particularly for applications that require high throughput and low latency.
+Efficiently manages a pool of worker threads in C#.
 
-## Features
-
-- **Thread Pool Management**: Efficiently manages a pool of worker threads.
-- **Concurrency**: Supports concurrent processing of messages.
-- **NuGet Package**: Easily installable via NuGet.
+MessageWorkerPool is a C# library that allows you to efficiently manage a pool of worker threads. It integrates with message queue service to handle message processing in a decoupled, scalable, and configurable manner, This helps in efficiently handling tasks in a multi-threaded environment, particularly for applications that require high throughput and low latency.
 
 ## Installation
 
@@ -21,6 +17,15 @@ To install the `MessageWorkerPool` package, use the following NuGet command:
 ```sh
 PM > Install-Package MessageWorkerPool
 ```
+
+To install the library, clone the repository and build the project:
+
+```
+git clone https://github.com/isdaniel/MessageWorkerPool.git
+cd MessageWorkerPool
+dotnet build
+```
+
 ## Quick Start
 
 Here’s a quick start guide for deploying your RabbitMQ and related services using the provided `docker-compose.yml` file and environment variables from `.env`.
@@ -41,32 +46,42 @@ docker-compose --env-file .\env\.env up --build -d
 Here is the sample code for creating and configuring a worker pool that interacts with RabbitMQ. Below is a breakdown of its functionality; The worker pool will fetch message from RabbitMQ server depended on your `RabbitMqSetting` setting and sending the message via `Process.StandardInput` to real worker node that created by users.
 
 ```c#
-public static IHostBuilder CreateHostBuilder(string[] args) =>
-    Host.CreateDefaultBuilder(args)
-        .ConfigureLogging(logging =>
-        {
-            logging.ClearProviders();
-            logging.AddConsole();
-        })
-        .AddRabbiMqWorkerPool(new RabbitMqSetting
-        {
-            QueueName = Environment.GetEnvironmentVariable("QUEUENAME"),
-            UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
-            Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
-            HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
-            Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
-            PrefetchTaskCount = ushort.TryParse(Environment.GetEnvironmentVariable("PREFETCHTASKCOUNT"), out ushort result) ? result : (ushort)1,
-            PoolSettings = new PoolSetting[]
+public class Program
+{
+    public static async Task Main(string[] args)
+    {
+        CreateHostBuilder(args).Build().Run();
+    }
+
+    public static IHostBuilder CreateHostBuilder(string[] args) =>
+        Host.CreateDefaultBuilder(args)
+            .ConfigureLogging(logging =>
             {
-                new PoolSetting(){WorkerUnitCount = 3, Group = "groupA", CommandLine = "dotnet", Arguments = @"./ProcessBin/ClientSample.dll"},
-                new PoolSetting(){WorkerUnitCount = 3, Group = "groupB", CommandLine = "dotnet", Arguments = @"./ProcessBin/ClientSample.dll"}
-            }
-        });
+                logging.ClearProviders();
+                logging.AddConsole(options =>
+                {
+                    options.FormatterName = ConsoleFormatterNames.Simple;
+                });
+                logging.Services.Configure<SimpleConsoleFormatterOptions>(options =>
+                {
+                    options.IncludeScopes = true;
+                    options.TimestampFormat = " yyyy-MM-dd HH:mm:ss ";
+                });
+            })
+            .AddRabbitMqWorkerPool(new RabbitMqSetting
+            {
+                QueueName = Environment.GetEnvironmentVariable("QUEUENAME"),
+                UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
+                Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
+                HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
+                Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
+                PrefetchTaskCount = 3
+            }, new WorkerPoolSetting() { WorkerUnitCount = 8, CommandLine = "python3", Arguments = @"./worker.py" });
+}
 ```
 
 1. **Scalability**
-   - Worker pools can be configured to handle multiple groups (`groupA`, `groupB`), each with its own set of workers.
-   - Scaling is achieved by increasing the `WorkerUnitCount` or adding new `PoolSettings` for additional groups.
+   - Scaling is achieved by increasing the `WorkerUnitCount` & `PrefetchTaskCount` determined how many amount of fetching message from rabbitMQ at same time.
 
 2. **Decoupling**
    - RabbitMQ acts as a message broker, decoupling the producers of messages from the consumers (workers). This makes it easier to manage workloads independently.
@@ -77,17 +92,31 @@ public static IHostBuilder CreateHostBuilder(string[] args) =>
 4. **Reusable Workers**
    - Worker processes are defined by the `CommandLine` and `Arguments`, making it easy to reuse or swap out the tasks performed by the workers.
 
-### Code Architecture
+## Protocol between worker and task process
 
-* WorkerPoolFactory.cs: Manages the creation of worker pools based on provided settings.
-Throws exceptions if any setting is missing required information.
+The Protocol between worker and task process are use JSON format with standardInput & standardInout.
 
-* WorkerPoolService.cs: Implements a background service to handle the lifecycle and execution of worker pools.
-Handles graceful shutdown and cancellation of worker threads.
+### Worker Standard Output
 
-* PoolSetting.cs: Defines the settings for the worker pools, such as worker unit count, group name, command line, and arguments.
-Program Workflow
+Currently, there are some status represnt status
 
+* IGNORE_MESSAGE (-1) : append message to standard output.
+* MESSAGE_DONE (200) : tell worker this case can ack from message queue service.
+* MESSAGE_DONE_WITH_REPLY (201) [not implemented yet]
+
+Status = -1 via Standard Output, task process tell worker this isn't a response nor ack message, only for record via Standard Output.
+
+```
+{"Message":"this is func task.., message Send Time[2024/12/19 06:59:43:646] this message belong with groupA, Sleeping 1s","Stauts":-1}
+```
+
+Status = 200 via Standard Output, task process tell worker the task can be acked that mean it was finished.
+
+```
+{"Message":"message done","Stauts":200}
+```
+
+We can write our own worker by different program language (I have provided python and .net sample in this repository).
 
 ## Contributing Guidelines
 
