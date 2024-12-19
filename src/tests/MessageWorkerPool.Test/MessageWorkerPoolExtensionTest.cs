@@ -61,13 +61,71 @@ namespace MessageWorkerPool.Test
 
 
         [Fact]
-        public void AddRabbitMqWorkerPool_ShouldThrowArgumentNullException_WhenBothSettingsAreNull()
+        public void AddRabbitMqWorkerPool_ShouldResolveRegisteredServicesAndTwoSettings()
         {
-            var services = new ServiceCollection();
-            var rabbitMQSetting = default(RabbitMqSetting);
+            var rabbitMQSetting = new RabbitMqSetting()
+            {
+                HostName = "localhost",
+                Password = "abcd1234",
+                Port = 5672,
+                QueueName = "queue1",
+                UserName = "user1",
+                PrefetchTaskCount = 1
+            };
 
-            Action act = () => services.AddRabbitMqWorkerPool(null, default(WorkerPoolSetting));
-            act.Should().Throw<ArgumentNullException>();
+            var workPoolSetting1 = new WorkerPoolSetting()
+            {
+                Arguments = "dummy_Arguments",
+                CommnadLine = "dummy_CommnadLine",
+                WorkerUnitCount = 5,
+
+            };
+
+            var workPoolSetting2 = new WorkerPoolSetting()
+            {
+                Arguments = "dummy_pyargs",
+                CommnadLine = "dummy_py",
+                WorkerUnitCount = 3,
+
+            };
+
+            var host = new HostBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddLogging(); // Add logging
+                    services.AddRabbitMqWorkerPool(rabbitMQSetting, new WorkerPoolSetting[] {
+                        workPoolSetting1,
+                        workPoolSetting2
+                    }); // Register the worker pool
+                }).Build();
+
+            var serviceProvider = host.Services;
+
+            var expectSetting = serviceProvider.GetService<MqSettingBase>();
+            var workerSetting = serviceProvider.GetService<WorkerPoolSetting[]>();
+
+            workerSetting.Should().NotBeNull();
+            workerSetting.Length.Should().Be(2); // Assuming one setting is registered
+            workerSetting[0].Arguments.Should().Be("dummy_Arguments");
+            workerSetting[0].CommnadLine.Should().Be("dummy_CommnadLine");
+            workerSetting[0].WorkerUnitCount.Should().Be(5);
+
+            workerSetting[1].Arguments.Should().Be("dummy_pyargs");
+            workerSetting[1].CommnadLine.Should().Be("dummy_py");
+            workerSetting[1].WorkerUnitCount.Should().Be(3);
+            workerSetting.Should().NotBeNull();
+
+
+            expectSetting.Should().NotBeNull();
+            expectSetting.Should().Be(rabbitMQSetting);
+
+            var workerFactory = serviceProvider.GetService<WorkerPoolFacorty>();
+            workerFactory.Should().NotBeNull();
+            workerFactory.Should().BeOfType<WorkerPoolFacorty>();
+
+            var hostedService = serviceProvider.GetService<IHostedService>();
+            hostedService.Should().NotBeNull();
+            hostedService.Should().BeOfType<WorkerPoolService>();
         }
 
         [Fact]
@@ -78,6 +136,72 @@ namespace MessageWorkerPool.Test
 
             Action act = () => services.AddRabbitMqWorkerPool(rabbitMQSetting, default(WorkerPoolSetting));
             act.Should().Throw<ArgumentNullException>();
+        }
+
+        [Fact]
+        public void AddRabbitMqWorkerPool_By_IHostBuilder_ShouldResolveRegisteredServicesAndTwoSettings()
+        {
+            // Arrange
+            var rabbitMqSetting = new RabbitMqSetting
+            {
+                HostName = "localhost",
+                Password = "abcd1234",
+                Port = 5672,
+                QueueName = "queue1",
+                UserName = "user1",
+                PrefetchTaskCount = 1,
+            };
+
+            var hostBuilder = new HostBuilder();
+
+            var workPoolSetting1 = new WorkerPoolSetting()
+            {
+                Arguments = "dummy_Arguments",
+                CommnadLine = "dummy_CommnadLine",
+                WorkerUnitCount = 5,
+
+            };
+
+            var workPoolSetting2 = new WorkerPoolSetting()
+            {
+                Arguments = "dummy_pyargs",
+                CommnadLine = "dummy_py",
+                WorkerUnitCount = 3,
+
+            };
+
+            // Act
+            using var host = hostBuilder.AddRabbitMqWorkerPool(rabbitMqSetting, new WorkerPoolSetting[] {
+                        workPoolSetting1,
+                        workPoolSetting2
+                    }).Build();
+            var serviceProvider = host.Services;
+
+            // Assert
+            var workerSetting = serviceProvider.GetService<WorkerPoolSetting[]>();
+
+            workerSetting.Should().NotBeNull();
+            workerSetting.Length.Should().Be(2); // Assuming one setting is registered
+            workerSetting[0].Arguments.Should().Be("dummy_Arguments");
+            workerSetting[0].CommnadLine.Should().Be("dummy_CommnadLine");
+            workerSetting[0].WorkerUnitCount.Should().Be(5);
+
+            workerSetting[1].Arguments.Should().Be("dummy_pyargs");
+            workerSetting[1].CommnadLine.Should().Be("dummy_py");
+            workerSetting[1].WorkerUnitCount.Should().Be(3);
+            workerSetting.Should().NotBeNull();
+
+            var resolvedSetting = serviceProvider.GetService<MqSettingBase>();
+            resolvedSetting.Should().NotBeNull();
+            resolvedSetting.Should().Be(rabbitMqSetting);
+
+            var poolFactory = serviceProvider.GetService<WorkerPoolFacorty>();
+            poolFactory.Should().NotBeNull();
+            poolFactory.Should().BeOfType<WorkerPoolFacorty>();
+
+            var hostedService = serviceProvider.GetService<IHostedService>();
+            hostedService.Should().NotBeNull();
+            hostedService.Should().BeOfType<WorkerPoolService>();
         }
 
         [Fact]
@@ -97,7 +221,8 @@ namespace MessageWorkerPool.Test
             var hostBuilder = new HostBuilder();
 
             // Act
-            using var host = hostBuilder.AddRabbitMqWorkerPool(rabbitMqSetting, new WorkerPoolSetting() {
+            using var host = hostBuilder.AddRabbitMqWorkerPool(rabbitMqSetting, new WorkerPoolSetting()
+            {
                 Arguments = "dummy_Arguments",
                 CommnadLine = "dummy_CommnadLine",
                 WorkerUnitCount = 5,
