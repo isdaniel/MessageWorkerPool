@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace MessageWorkerPool.Test
 {
+
     public class MessageWorkerPoolExtensionTest
     {
         [Fact]

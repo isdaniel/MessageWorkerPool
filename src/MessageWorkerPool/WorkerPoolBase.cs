@@ -31,6 +31,11 @@ namespace MessageWorkerPool
 
         public WorkerPoolBase(WorkerPoolSetting workerSetting,ILoggerFactory loggerFactory)
         {
+            if (workerSetting == null)
+            {
+                throw new ArgumentNullException(nameof(workerSetting));
+            }
+
             _loggerFactory = loggerFactory;
             this._logger = _loggerFactory.CreateLogger<WorkerPoolBase>();
             _workerSetting = workerSetting;

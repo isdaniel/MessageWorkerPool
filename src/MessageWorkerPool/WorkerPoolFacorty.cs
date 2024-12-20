@@ -1,4 +1,4 @@
-﻿using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMq;
 using Microsoft.Extensions.Logging;
 
 namespace MessageWorkerPool
