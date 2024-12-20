@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
-using System.Threading;
-using System.Threading.Tasks;
+using System;
+
 
 namespace MessageWorkerPool.RabbitMq
 {
@@ -10,33 +10,68 @@ namespace MessageWorkerPool.RabbitMq
         private readonly RabbitMqSetting _rabbitMqSetting;
         private IConnection _connection;
         private bool _disposed = false;
-        public RabbitMqWorkerPool(RabbitMqSetting rabbitMqSetting, WorkerPoolSetting workerSetting, ILoggerFactory loggerFactory) : base(workerSetting, loggerFactory)
+
+        internal IConnection Connection => _connection;
+
+        /// <summary>
+        /// Create RabbitMqWorkerPool.
+        /// </summary>
+        /// <param name="rabbitMqSetting">RabbitMQ Setting</param>
+        /// <param name="workerSetting">>Worker Pool Seeting</param>
+        /// <param name="connection">RabitMqconnection</param>
+        /// <param name="loggerFactory"></param>
+        public RabbitMqWorkerPool(RabbitMqSetting rabbitMqSetting, WorkerPoolSetting workerSetting, IConnection connection, ILoggerFactory loggerFactory) : base(workerSetting, loggerFactory)
         {
+            if (connection == null)
+            {
+                throw new ArgumentNullException(nameof(connection));
+            }
 
             _rabbitMqSetting = rabbitMqSetting;
+            _connection = connection;
+        }
 
-            var _connFactory = new ConnectionFactory
+        /// <summary>
+        /// Create RabbitMqWorkerPool.
+        /// </summary>
+        /// <param name="rabbitMqSetting">RabbitMQ Setting</param>
+        /// <param name="workerSetting">Worker Pool Seeting</param>
+        /// <param name="loggerFactory"></param>
+        public RabbitMqWorkerPool(RabbitMqSetting rabbitMqSetting, WorkerPoolSetting workerSetting, ILoggerFactory loggerFactory) : this(rabbitMqSetting, workerSetting, CreateConnection(rabbitMqSetting, loggerFactory), loggerFactory)
+        {
+        }
+
+        private static IConnection CreateConnection(RabbitMqSetting rabbitMqSetting, ILoggerFactory loggerFactory)
+        {
+            if (rabbitMqSetting == null)
             {
-                Uri = _rabbitMqSetting.GetUri(),
-                DispatchConsumersAsync = true // async mode
-            };
+                throw new ArgumentNullException(nameof(rabbitMqSetting));
+            }
 
-            _connection = _connFactory.CreateConnection();
+            var logger = loggerFactory.CreateLogger<RabbitMqWorkerPool>();
+            try
+            {
+                return rabbitMqSetting.ConnectionHandler(rabbitMqSetting);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex,"RabbitMQ connection create fail!");
+                throw;
+            }
+            
         }
 
         protected override IWorker GetWorker()
         {
             var channle = _connection.CreateModel();
-            var worker = new RabbitMqWorker(_rabbitMqSetting, _workerSetting, channle, _loggerFactory);
-
-            return worker;
+            return new RabbitMqWorker(_rabbitMqSetting, _workerSetting, channle, _loggerFactory);
         }
 
         protected override void Dispose(bool disposing)
         {
             if (_disposed)
                 return;
-            
+
             base.Dispose(disposing);
 
             if (_connection?.IsOpen != null)

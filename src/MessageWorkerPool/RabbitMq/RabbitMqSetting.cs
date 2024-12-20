@@ -1,4 +1,6 @@
 using System;
+using System.Data.Common;
+using RabbitMQ.Client;
 
 namespace MessageWorkerPool.RabbitMq
 {
@@ -6,8 +8,6 @@ namespace MessageWorkerPool.RabbitMq
     {
 
         public abstract string GetConnectionString();
-        public ushort ConnectionRetryCount { get; set; } = 3;
-        public TimeSpan ConnectionRetryTimeout { get; set; } = TimeSpan.FromSeconds(5);
     }
 
     public class RabbitMqSetting : MqSettingBase
@@ -51,5 +51,20 @@ namespace MessageWorkerPool.RabbitMq
         /// default value is 1 (0 if unlimited)
         /// </summary>
         public ushort PrefetchTaskCount { get; set; } = 1;
+        public Func<RabbitMqSetting, IConnection> ConnectionHandler { get; set; } = setting => setting.DefaultConnectionCreator();
+
+        /// <summary>
+        /// default creator provide by RabbitMqSetting itself.
+        /// </summary>
+        /// <returns></returns>
+        private IConnection DefaultConnectionCreator (){
+            var _connFactory = new ConnectionFactory
+            {
+                Uri = this.GetUri(),
+                DispatchConsumersAsync = true // async mode
+            };
+
+            return _connFactory.CreateConnection();
+        }
     }
 }

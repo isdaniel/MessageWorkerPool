@@ -30,13 +30,11 @@ namespace MessageWorkerPool.RabbitMq
             WorkerStatus.Stopping
         };
 
+        //Message Finish Statuss
         private readonly HashSet<MessageStatus> _messgeDoneMap = new HashSet<MessageStatus>(){
             MessageStatus.MESSAGE_DONE,
             MessageStatus.MESSAGE_DONE_WITH_REPLY
         };
-
-        //MESSAGE_DONE,
-        //MESSAGE_DONE_WITH_REPLY
 
         /// <summary>
         /// Worker status
