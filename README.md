@@ -27,6 +27,10 @@ cd MessageWorkerPool
 dotnet build
 ```
 
+## Architecture overview
+
+![](./images/arhc-overview.png)
+
 ## Quick Start
 
 Here’s a quick start guide for deploying your RabbitMQ and related services using the provided `docker-compose.yml` file and environment variables from `.env`.
