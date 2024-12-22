@@ -102,8 +102,8 @@ namespace MessageWorkerPool.Test
 
         [Theory]
         [InlineData("This is Test Message", "test-correlation-id", "Invalid Json Output String", false, true,200)]
-        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Stauts\":200}", true, false,int.MaxValue)]
-        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE_WITH_REPLY\",\"Stauts\":201}", true, false,int.MaxValue)]
+        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Status\":200}", true, false,int.MaxValue)]
+        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE_WITH_REPLY\",\"Status\":201}", true, false,int.MaxValue)]
         public async Task AsyncEventHandler_SendingMessage(string message, string correlationId, string outputResponse, bool expectAck, bool expectNack,int tokenTimeout)
         {
             var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
@@ -129,8 +129,8 @@ namespace MessageWorkerPool.Test
 
         [Theory]
         [InlineData("This is Test Message", "test-correlation-id", "Invalid Json Output String", false, true, 1000)]
-        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Stauts\":200}", true, false, int.MaxValue)]
-        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE_WITH_REPLY\",\"Stauts\":201}", true, false, int.MaxValue)]
+        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Status\":200}", true, false, int.MaxValue)]
+        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE_WITH_REPLY\",\"Status\":201}", true, false, int.MaxValue)]
         public async Task AsyncEventHandler_Shutdown_SendingMessage(string message, string correlationId, string outputResponse, bool expectAck, bool expectNack, int tokenTimeout)
         {
             var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());

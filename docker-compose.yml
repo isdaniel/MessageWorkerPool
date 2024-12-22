@@ -34,6 +34,7 @@ services:
   workersample:
     #build: ./examples/python_examples
     build: ./examples/dotnet_examples
+    #build: ./examples/rust_examples
     stop_grace_period: 200s
     # stop_signal: SIGINT
     #image: dog830228/mq_poc-nodeworker

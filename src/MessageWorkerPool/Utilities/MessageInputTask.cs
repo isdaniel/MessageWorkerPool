@@ -24,6 +24,6 @@ namespace MessageWorkerPool.Utilities
     public class MessageOutputTask
     {
         public string Message { get; set; }
-        public MessageStatus Stauts { get; set; } = MessageStatus.IGNORE_MESSAGE;
+        public MessageStatus Status { get; set; }
     }
 }

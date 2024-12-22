@@ -162,12 +162,12 @@ namespace MessageWorkerPool.RabbitMq
 
                 var outputTask = new MessageOutputTask
                 {
-                    Stauts = MessageStatus.IGNORE_MESSAGE
+                    Status = MessageStatus.IGNORE_MESSAGE
                 };
 
                 outputTask = await ReadAndProcessOutputAsync(outputTask, token);
 
-                if (_messgeDoneMap.Contains(outputTask.Stauts))
+                if (_messgeDoneMap.Contains(outputTask.Status))
                 {
                     AcknowledgeMessage(e);
                 }
@@ -207,7 +207,7 @@ namespace MessageWorkerPool.RabbitMq
                     }
                 }
 
-                if (_messgeDoneMap.Contains(outputTask.Stauts))
+                if (_messgeDoneMap.Contains(outputTask.Status))
                 {
                     break;
                 }
