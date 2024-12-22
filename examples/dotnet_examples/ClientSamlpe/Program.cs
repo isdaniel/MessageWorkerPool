@@ -20,7 +20,7 @@ namespace WorkerProcessSample
                 return new MessageOutputTask()
                 {
                     Message = "New OutPut Message!",
-                    Stauts = MessageStatus.MESSAGE_DONE
+                    Status = MessageStatus.MESSAGE_DONE
                 };
             });
         }

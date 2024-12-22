@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MessageWorkerPool" Version="0.0.0.4" />
+    <PackageReference Include="MessageWorkerPool" Version="0.0.0.6" />
   </ItemGroup>
 
 </Project>
