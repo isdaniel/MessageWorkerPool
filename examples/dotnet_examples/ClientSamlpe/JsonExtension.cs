@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using MessageWorkerPool.Utilities;
 
 namespace WorkerProcessSample
@@ -8,7 +8,7 @@ namespace WorkerProcessSample
             return JsonSerializer.Serialize(new MessageOutputTask()
             {
                 Message = message,
-                Stauts = MessageStatus.IGNORE_MESSAGE
+                Status = MessageStatus.IGNORE_MESSAGE
             });
         }
 
