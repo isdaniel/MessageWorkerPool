@@ -1,5 +1,6 @@
 import json
 import time
+import sys
 from typing import Callable, Optional
 
 class MessageStatus:
@@ -60,6 +61,7 @@ class MessageProcessor:
 
             except Exception as ex:
                 print(f"Json Parse Error: {ex}", file=sys.stderr)
+            sys.stdout.flush()
 
 def main():
     processor = MessageProcessor()
