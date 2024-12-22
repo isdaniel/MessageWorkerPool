@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -160,14 +161,9 @@ namespace MessageWorkerPool.RabbitMq
 
                 await Process.StandardInput.WriteLineAsync(task.ToJsonMessage()).ConfigureAwait(false);
 
-                var outputTask = new MessageOutputTask
-                {
-                    Status = MessageStatus.IGNORE_MESSAGE
-                };
+                var taskOutput = await ReadAndProcessOutputAsync(token);
 
-                outputTask = await ReadAndProcessOutputAsync(outputTask, token);
-
-                if (_messgeDoneMap.Contains(outputTask.Status))
+                if (_messgeDoneMap.Contains(taskOutput.Status))
                 {
                     AcknowledgeMessage(e);
                 }
@@ -183,8 +179,12 @@ namespace MessageWorkerPool.RabbitMq
             }
         }
 
-        private async Task<MessageOutputTask> ReadAndProcessOutputAsync(MessageOutputTask outputTask, CancellationToken token)
+        private async Task<MessageOutputTask> ReadAndProcessOutputAsync(CancellationToken token)
         {
+            var taskOutput = new MessageOutputTask() {
+                Status = MessageStatus.IGNORE_MESSAGE
+            };
+
             while (!token.IsCancellationRequested || Process.StandardOutput.Peek() > 0)
             {
                 string responseJson = await Process.StandardOutput.ReadLineAsync().ConfigureAwait(false);
@@ -194,7 +194,7 @@ namespace MessageWorkerPool.RabbitMq
                 {
                     try
                     {
-                        outputTask = JsonSerializer.Deserialize<MessageOutputTask>(responseJson);
+                        taskOutput = JsonSerializer.Deserialize<MessageOutputTask>(responseJson);
                     }
                     catch (JsonException ex)
                     {
@@ -207,13 +207,13 @@ namespace MessageWorkerPool.RabbitMq
                     }
                 }
 
-                if (_messgeDoneMap.Contains(outputTask.Status))
+                if (_messgeDoneMap.Contains(taskOutput.Status))
                 {
                     break;
                 }
             }
 
-            return outputTask;
+            return taskOutput;
         }
 
         private void AcknowledgeMessage(BasicDeliverEventArgs e)
