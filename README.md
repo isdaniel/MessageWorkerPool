@@ -112,13 +112,13 @@ Currently, there are some status represnt status
 Status = -1 via Standard Output, task process tell worker this isn't a response nor ack message, only for record via Standard Output.
 
 ```
-{"Message":"this is func task.., message Send Time[2024/12/19 06:59:43:646] this message belong with groupA, Sleeping 1s","Stauts":-1}
+{"Message":"this is func task.., message Send Time[2024/12/19 06:59:43:646] this message belong with groupA, Sleeping 1s","Status":-1}
 ```
 
 Status = 200 via Standard Output, task process tell worker the task can be acked that mean it was finished.
 
 ```
-{"Message":"message done","Stauts":200}
+{"Message":"message done","Status":200}
 ```
 
 We can write our own worker by different program language (I have provided python and .net sample in this repository).
