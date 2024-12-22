@@ -4,12 +4,13 @@
 [![MessageWorkerPool](https://img.shields.io/nuget/v/MessageWorkerPool.svg?style=plastic)](https://www.nuget.org/packages/MessageWorkerPool/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/MessageWorkerPool.svg)](https://www.nuget.org/packages/MessageWorkerPool/)
 [![github action](https://github.com/isdaniel/MessageWorkerPool/actions/workflows/dotnet.yml/badge.svg?branch=main)](https://github.com/isdaniel/MessageWorkerPool/actions)
+[![action pipe](https://img.shields.io/github/actions/workflow/status/isdaniel/MessageWorkerPool/dotnet.yml?branch=main&color=009688&label=CI)](https://github.com/isdaniel/MessageWorkerPool/actions)
 
 ## Introduction
 
-Efficiently manages a pool of worker threads in C#.
+Efficiently manages a pool of worker processes in C#.
 
-MessageWorkerPool is a C# library that allows you to efficiently manage a pool of worker threads. It integrates with message queue service to handle message processing in a decoupled, scalable, and configurable manner, This helps in efficiently handling tasks in a multi-threaded environment, particularly for applications that require high throughput and low latency.
+MessageWorkerPool is a C# library that allows you to efficiently manage a pool of worker processes. It integrates with message queue service to handle message processing in a decoupled, scalable, and configurable manner, This helps in efficiently handling tasks in a multi-processes environment, particularly for applications that require high throughput and low latency.
 
 ## Installation
 
