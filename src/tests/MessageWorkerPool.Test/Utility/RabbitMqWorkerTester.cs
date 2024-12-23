@@ -12,8 +12,8 @@ namespace MessageWorkerPool.Test.Utility
         public RabbitMqWorkerTester(
             RabbitMqSetting setting,
             WorkerPoolSetting workerSetting,
-            IModel channle,
-            ILoggerFactory loggerFactory) : base(setting, workerSetting, channle, loggerFactory)
+            IModel channel,
+            ILoggerFactory loggerFactory) : base(setting, workerSetting, channel, loggerFactory)
         {
 
         }

@@ -3,6 +3,7 @@ using FluentAssertions;
 using Moq;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 
 namespace MessageWorkerPool.Test
 {
@@ -30,17 +31,19 @@ namespace MessageWorkerPool.Test
         [Fact]
         public void Constructor_ShouldThrowUriFormatException_AndLogError_WhenRabbitMqSettingHasInvalidUri()
         {
+            string Host = "localhost";
+
             // Act
-            Action act = () => new RabbitMqWorkerPool(new RabbitMqSetting(), null, _loggerFactoryMock.Object);
+            Action act = () => new RabbitMqWorkerPool(new RabbitMqSetting() { HostName = Host }, null, _loggerFactoryMock.Object);
 
             // Assert
-            act.Should().Throw<UriFormatException>();
+            act.Should().Throw<BrokerUnreachableException>();
 
             _loggerMock.Verify(
                 l => l.Log(
                     LogLevel.Error,
                     It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("RabbitMQ connection create fail!")),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString().Contains($"Failed to create RabbitMQ connection for host: {Host}")),
                     It.IsAny<Exception>(),
                     It.IsAny<Func<It.IsAnyType, Exception, string>>()
                 ),

@@ -22,7 +22,7 @@ namespace MessageWorkerPool.RabbitMq
         public RabbitMqSetting Setting { get; }
         protected AsyncEventHandler<BasicDeliverEventArgs> ReceiveEvent;
         private AsyncEventingBasicConsumer _consumer;
-        internal IModel Channle { get; private set; }
+        internal IModel Channel { get; private set; }
         protected IProcessWrapper Process { get; private set; }
         private readonly WorkerPoolSetting _workerSetting;
         private readonly ILoggerFactory _loggerFactory;
@@ -32,7 +32,7 @@ namespace MessageWorkerPool.RabbitMq
         };
 
         //Message Finish Statuss
-        private readonly HashSet<MessageStatus> _messgeDoneMap = new HashSet<MessageStatus>(){
+        private readonly HashSet<MessageStatus> _messageDoneMap = new HashSet<MessageStatus>(){
             MessageStatus.MESSAGE_DONE,
             MessageStatus.MESSAGE_DONE_WITH_REPLY
         };
@@ -47,20 +47,20 @@ namespace MessageWorkerPool.RabbitMq
         public RabbitMqWorker(
             RabbitMqSetting setting,
             WorkerPoolSetting workerSetting,
-            IModel channle,
+            IModel channel,
             ILoggerFactory loggerFactory)
         {
             if (workerSetting == null)
-                throw new NullReferenceException(nameof(workerSetting));
+                throw new ArgumentNullException(nameof(workerSetting));
 
             if (setting == null)
-                throw new NullReferenceException(nameof(setting));
+                throw new ArgumentNullException(nameof(setting));
 
             _loggerFactory = loggerFactory;
             Logger = _loggerFactory.CreateLogger<RabbitMqWorker>();
             Setting = setting;
             _workerSetting = workerSetting;
-            Channle = channle;
+            Channel = channel;
             Logger.LogInformation($"RabbitMq connection string: {setting.GetUriWithoutPassword()}");
         }
 
@@ -81,7 +81,7 @@ namespace MessageWorkerPool.RabbitMq
         /// <returns></returns>
         public virtual async Task InitWorkerAsync(CancellationToken token)
         {
-            _consumer = new AsyncEventingBasicConsumer(Channle);
+            _consumer = new AsyncEventingBasicConsumer(Channel);
             Process = CreateProcess(new ProcessStartInfo()
             {
                 RedirectStandardInput = true,
@@ -108,20 +108,18 @@ namespace MessageWorkerPool.RabbitMq
                     {
                         if (_stoppingStatus.Contains(Status) || token.IsCancellationRequested)
                         {
-                            Channle.BasicNack(e.DeliveryTag, false, true);
+                            Channel.BasicNack(e.DeliveryTag, false, true);
                             Logger.LogWarning($"doing GracefulShutDown reject message!");
                         }
 
                         var message = Encoding.UTF8.GetString(e.Body.Span.ToArray());
-                        Logger.LogInformation($"received message:{message}");
+                        Logger.LogDebug($"received message:{message}");
                         await ProcessingMessage(e, message, correlationId, token).ConfigureAwait(false);
                     }
-
-                    await Task.Yield();
                 };
                 _consumer.Received += ReceiveEvent;
-                Channle.BasicQos(0, Setting.PrefetchTaskCount, true);
-                Channle.BasicConsume(Setting.QueueName, false, _consumer);
+                Channel.BasicQos(0, Setting.PrefetchTaskCount, true);
+                Channel.BasicConsume(Setting.QueueName, false, _consumer);
                 Logger.LogInformation($"Worker running!");
             }
 
@@ -163,7 +161,7 @@ namespace MessageWorkerPool.RabbitMq
 
                 var taskOutput = await ReadAndProcessOutputAsync(token);
 
-                if (_messgeDoneMap.Contains(taskOutput.Status))
+                if (_messageDoneMap.Contains(taskOutput.Status))
                 {
                     AcknowledgeMessage(e);
                 }
@@ -207,7 +205,7 @@ namespace MessageWorkerPool.RabbitMq
                     }
                 }
 
-                if (_messgeDoneMap.Contains(taskOutput.Status))
+                if (_messageDoneMap.Contains(taskOutput.Status))
                 {
                     break;
                 }
@@ -218,13 +216,13 @@ namespace MessageWorkerPool.RabbitMq
 
         private void AcknowledgeMessage(BasicDeliverEventArgs e)
         {
-            Channle.BasicAck(e.DeliveryTag, false);
+            Channel.BasicAck(e.DeliveryTag, false);
             Logger.LogInformation($"Message {e.DeliveryTag} acknowledged.");
         }
 
         private void RejectMessage(BasicDeliverEventArgs e)
         {
-            Channle.BasicNack(e.DeliveryTag, false, true);
+            Channel.BasicNack(e.DeliveryTag, false, true);
             Logger.LogInformation($"Message {e.DeliveryTag} rejected.");
         }
 
@@ -239,10 +237,15 @@ namespace MessageWorkerPool.RabbitMq
 
         public async Task GracefulShutDownAsync(CancellationToken token)
         {
-            Logger.LogInformation("Exeuceting GracefulShutDownAsync!");
+            Logger.LogInformation("Executing GracefulShutDownAsync!");
             Status = WorkerStatus.Stopping;
-            _consumer.Received -= ReceiveEvent;
-            ReceiveEvent = null;
+
+            if (ReceiveEvent != null)
+            {
+                _consumer.Received -= ReceiveEvent;
+                ReceiveEvent = null;
+            }
+
             CloseProcess();
             Status = WorkerStatus.Stopped;
             await GracefulReleaseAsync(token);
@@ -279,10 +282,10 @@ namespace MessageWorkerPool.RabbitMq
                 Process = null;
             }
 
-            if (Channle?.IsClosed != null)
+            if (Channel?.IsClosed != null)
             {
-                Channle.Close();
-                Channle = null;
+                Channel.Close();
+                Channel = null;
             }
 
             _disposed = true;

@@ -63,7 +63,7 @@ namespace MessageWorkerPool.Test
         private void VerifyLogging(string message)
         {
             _loggerMock.Verify(l => l.Log(
-                LogLevel.Information,
+                LogLevel.Debug,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => v.ToString().Contains($"received message:{message}")),
                 null,
@@ -75,7 +75,7 @@ namespace MessageWorkerPool.Test
         public void CreateWorker_ShouldThrowNullReferenceException_WhenRabbitMqSettingIsNull()
         {
             Action act = () => CreateWorker(null, new WorkerPoolSetting());
-            act.Should().Throw<NullReferenceException>("*RabbitMqSetting*");
+            act.Should().Throw<ArgumentNullException>("*RabbitMqSetting*");
         }
 
         [Fact]
@@ -83,7 +83,7 @@ namespace MessageWorkerPool.Test
         {
             var rabbitMQSetting = new RabbitMqSetting();
             Action act = () => CreateWorker(rabbitMQSetting, null);
-            act.Should().Throw<NullReferenceException>("*WorkerPoolSetting*");
+            act.Should().Throw<ArgumentNullException>("*WorkerPoolSetting*");
         }
 
         [Fact]
@@ -158,7 +158,7 @@ namespace MessageWorkerPool.Test
             worker.mockProcess.Verify(x => x.Dispose(), Times.Once);
             worker.mockProcess.Verify(x => x.WaitForExit(), Times.Once);
             worker.Status.Should().Be(WorkerStatus.Stopped);
-            worker.Channle.Should().BeNull();
+            worker.Channel.Should().BeNull();
             worker.AsyncEventHandler.Should().BeNull();
             _loggerMock.Verify(l => l.Log(
                               LogLevel.Information,

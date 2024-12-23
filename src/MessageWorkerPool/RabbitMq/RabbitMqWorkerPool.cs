@@ -12,32 +12,39 @@ namespace MessageWorkerPool.RabbitMq
         private bool _disposed = false;
 
         internal IConnection Connection => _connection;
-
         /// <summary>
         /// Create RabbitMqWorkerPool.
         /// </summary>
         /// <param name="rabbitMqSetting">RabbitMQ Setting</param>
-        /// <param name="workerSetting">>Worker Pool Seeting</param>
-        /// <param name="connection">RabitMqconnection</param>
+        /// <param name="workerSetting">Worker Pool Setting</param>
+        /// <param name="connection">RabbitMQ connection</param>
         /// <param name="loggerFactory"></param>
-        public RabbitMqWorkerPool(RabbitMqSetting rabbitMqSetting, WorkerPoolSetting workerSetting, IConnection connection, ILoggerFactory loggerFactory) : base(workerSetting, loggerFactory)
+        public RabbitMqWorkerPool(
+            RabbitMqSetting rabbitMqSetting,
+            WorkerPoolSetting workerSetting,
+            IConnection connection,
+            ILoggerFactory loggerFactory)
+            : base(workerSetting, loggerFactory)
         {
-            if (connection == null)
-            {
-                throw new ArgumentNullException(nameof(connection));
-            }
-
-            _rabbitMqSetting = rabbitMqSetting;
-            _connection = connection;
+            _rabbitMqSetting = rabbitMqSetting ?? throw new ArgumentNullException(nameof(rabbitMqSetting));
+            _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         }
 
         /// <summary>
         /// Create RabbitMqWorkerPool.
         /// </summary>
         /// <param name="rabbitMqSetting">RabbitMQ Setting</param>
-        /// <param name="workerSetting">Worker Pool Seeting</param>
+        /// <param name="workerSetting">Worker Pool Setting</param>
         /// <param name="loggerFactory"></param>
-        public RabbitMqWorkerPool(RabbitMqSetting rabbitMqSetting, WorkerPoolSetting workerSetting, ILoggerFactory loggerFactory) : this(rabbitMqSetting, workerSetting, CreateConnection(rabbitMqSetting, loggerFactory), loggerFactory)
+        public RabbitMqWorkerPool(
+            RabbitMqSetting rabbitMqSetting,
+            WorkerPoolSetting workerSetting,
+            ILoggerFactory loggerFactory)
+            : this(
+                rabbitMqSetting ?? throw new ArgumentNullException(nameof(rabbitMqSetting)),
+                workerSetting,
+                CreateConnection(rabbitMqSetting, loggerFactory),
+                loggerFactory)
         {
         }
 
@@ -55,7 +62,7 @@ namespace MessageWorkerPool.RabbitMq
             }
             catch (Exception ex)
             {
-                logger.LogError(ex,"RabbitMQ connection create fail!");
+                logger.LogError(ex, "Failed to create RabbitMQ connection for host: {Host}", rabbitMqSetting?.HostName);
                 throw;
             }
             
@@ -63,8 +70,8 @@ namespace MessageWorkerPool.RabbitMq
 
         protected override IWorker GetWorker()
         {
-            var channle = _connection.CreateModel();
-            return new RabbitMqWorker(_rabbitMqSetting, _workerSetting, channle, _loggerFactory);
+            var channel = _connection.CreateModel();
+            return new RabbitMqWorker(_rabbitMqSetting, _workerSetting, channel, _loggerFactory);
         }
 
         protected override void Dispose(bool disposing)
@@ -74,10 +81,9 @@ namespace MessageWorkerPool.RabbitMq
 
             base.Dispose(disposing);
 
-            if (_connection?.IsOpen != null)
+            if (_connection?.IsOpen == true)
             {
                 _connection.Close();
-                _connection = null;
             }
 
             _disposed = true;
