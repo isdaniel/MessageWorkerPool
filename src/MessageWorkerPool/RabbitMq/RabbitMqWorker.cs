@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
@@ -108,8 +109,10 @@ namespace MessageWorkerPool.RabbitMq
                     {
                         if (_stoppingStatus.Contains(Status) || token.IsCancellationRequested)
                         {
-                            Channel.BasicNack(e.DeliveryTag, false, true);
+                            RejectMessage(e);
                             Logger.LogWarning($"doing GracefulShutDown reject message!");
+                            //it should return, if the worker are processing GracefulShutDown.
+                            return;
                         }
 
                         var message = Encoding.UTF8.GetString(e.Body.Span.ToArray());
@@ -118,9 +121,10 @@ namespace MessageWorkerPool.RabbitMq
                     }
                 };
                 _consumer.Received += ReceiveEvent;
-                Channel.BasicQos(0, Setting.PrefetchTaskCount, true);
+                Channel.BasicQos(0, Setting.PrefetchTaskCount, false);
                 Channel.BasicConsume(Setting.QueueName, false, _consumer);
-                Logger.LogInformation($"Worker running!");
+                Logger.LogInformation($"Starting.. Channel ChannelNumber {Channel.ChannelNumber}");
+                Logger.LogDebug($"Worker running!");
             }
 
             await Task.CompletedTask;
@@ -217,13 +221,13 @@ namespace MessageWorkerPool.RabbitMq
         private void AcknowledgeMessage(BasicDeliverEventArgs e)
         {
             Channel.BasicAck(e.DeliveryTag, false);
-            Logger.LogInformation($"Message {e.DeliveryTag} acknowledged.");
+            Logger.LogInformation($"Channel ChannelNumber {Channel.ChannelNumber},Message {e.DeliveryTag} acknowledged.");
         }
 
         private void RejectMessage(BasicDeliverEventArgs e)
         {
-            Channel.BasicNack(e.DeliveryTag, false, true);
-            Logger.LogInformation($"Message {e.DeliveryTag} rejected.");
+            Channel.BasicNack(e.DeliveryTag,false, true);
+            Logger.LogInformation($"Channel ChannelNumber {Channel.ChannelNumber},Message {e.DeliveryTag} rejected.");
         }
 
         /// <summary>
