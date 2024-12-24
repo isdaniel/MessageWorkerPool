@@ -13,11 +13,11 @@ namespace MessageWorkerPool
     {
         private readonly ILogger<WorkerPoolService> _logger;
         private readonly WorkerPoolSetting[] _workerSettings;
-        private readonly WorkerPoolFacorty _workerPoolFacorty;
+        private readonly IWorkerPoolFactory _workerPoolFacorty;
         private readonly ILoggerFactory _loggerFactory;
         private readonly List<IWorkerPool> _workerPools;
 
-        public WorkerPoolService(WorkerPoolSetting[] workerSettings, WorkerPoolFacorty workerPoolFacorty, ILoggerFactory loggerFactory, ILogger<WorkerPoolService> logger)
+        public WorkerPoolService(WorkerPoolSetting[] workerSettings, IWorkerPoolFactory workerPoolFacorty, ILoggerFactory loggerFactory, ILogger<WorkerPoolService> logger)
         {
             _logger = logger;
             _workerSettings = workerSettings;
@@ -30,7 +30,7 @@ namespace MessageWorkerPool
         {
             foreach (var workerSetting in _workerSettings)
             {
-                var workerPool = _workerPoolFacorty.GetWorkPoolInstacne(workerSetting);
+                var workerPool = _workerPoolFacorty.CreateWorkerPool(workerSetting);
                 await workerPool.InitPoolAsync(token);
                 _workerPools.Add(workerPool);
             }

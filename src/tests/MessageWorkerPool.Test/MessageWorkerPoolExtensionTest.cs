@@ -51,9 +51,9 @@ namespace MessageWorkerPool.Test
             expectSetting.Should().NotBeNull();
             expectSetting.Should().Be(rabbitMQSetting);
 
-            var workerFactory = serviceProvider.GetService<WorkerPoolFacorty>();
+            var workerFactory = serviceProvider.GetService<WorkerPoolFactory>();
             workerFactory.Should().NotBeNull();
-            workerFactory.Should().BeOfType<WorkerPoolFacorty>();
+            workerFactory.Should().BeOfType<WorkerPoolFactory>();
 
             var hostedService = serviceProvider.GetService<IHostedService>();
             hostedService.Should().NotBeNull();
@@ -120,9 +120,9 @@ namespace MessageWorkerPool.Test
             expectSetting.Should().NotBeNull();
             expectSetting.Should().Be(rabbitMQSetting);
 
-            var workerFactory = serviceProvider.GetService<WorkerPoolFacorty>();
+            var workerFactory = serviceProvider.GetService<WorkerPoolFactory>();
             workerFactory.Should().NotBeNull();
-            workerFactory.Should().BeOfType<WorkerPoolFacorty>();
+            workerFactory.Should().BeOfType<WorkerPoolFactory>();
 
             var hostedService = serviceProvider.GetService<IHostedService>();
             hostedService.Should().NotBeNull();
@@ -196,9 +196,9 @@ namespace MessageWorkerPool.Test
             resolvedSetting.Should().NotBeNull();
             resolvedSetting.Should().Be(rabbitMqSetting);
 
-            var poolFactory = serviceProvider.GetService<WorkerPoolFacorty>();
+            var poolFactory = serviceProvider.GetService<WorkerPoolFactory>();
             poolFactory.Should().NotBeNull();
-            poolFactory.Should().BeOfType<WorkerPoolFacorty>();
+            poolFactory.Should().BeOfType<WorkerPoolFactory>();
 
             var hostedService = serviceProvider.GetService<IHostedService>();
             hostedService.Should().NotBeNull();
@@ -235,9 +235,9 @@ namespace MessageWorkerPool.Test
             resolvedSetting.Should().NotBeNull();
             resolvedSetting.Should().Be(rabbitMqSetting);
 
-            var poolFactory = serviceProvider.GetService<WorkerPoolFacorty>();
+            var poolFactory = serviceProvider.GetService<WorkerPoolFactory>();
             poolFactory.Should().NotBeNull();
-            poolFactory.Should().BeOfType<WorkerPoolFacorty>();
+            poolFactory.Should().BeOfType<WorkerPoolFactory>();
 
             var hostedService = serviceProvider.GetService<IHostedService>();
             hostedService.Should().NotBeNull();

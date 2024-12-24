@@ -42,7 +42,8 @@ namespace MessageWorkerPool.Extensions
             });
             services.AddHostedService<WorkerPoolService>();
             services.AddSingleton(workerSettings);
-            services.AddTransient<WorkerPoolFacorty>();
+            services.AddTransient<WorkerPoolFactory>();
+            services.AddSingleton<IWorkerPoolFactory, WorkerPoolFactory>();
 
             return services;
         }
