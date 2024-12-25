@@ -2,8 +2,7 @@ FROM mcr.microsoft.com/dotnet/sdk:6.0 as build
 COPY ./ /sourceCode
 WORKDIR /sourceCode
 RUN dotnet restore
-RUN dotnet publish -c Release -o /app
-COPY ./ProcessBin /app/ProcessBin
+RUN dotnet publish -c Release -o /app && cp ./ProcessBin /app/ProcessBin -R
 
 # WorkerPool runtime
 FROM mcr.microsoft.com/dotnet/aspnet:6.0 as server

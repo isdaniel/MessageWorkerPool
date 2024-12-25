@@ -1,0 +1,57 @@
+name: Integration Test
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  Integration-Test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Compose
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+
+    - name: docker-compose-initial
+      run: docker-compose --env-file ./env/.env up --build -d
+      working-directory: ./src/tests/integrationTest
+
+    # todo tradeworker can be parameter,
+    - name: Start chaos script
+      run: |
+        chmod +x ./chaos_script.sh
+        nohup ./chaos_script.sh 'tradeworker' > chaos_script.log 2>&1 &
+      working-directory: ./src/tests/integrationTest/autoScript
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+    - name: Load environment variables from .env file & Doing integration test
+      run: |
+        set -a
+        source ./env/.env
+        set +a
+        for i in {1..5}
+        do
+          docker start $(docker ps -a --filter "name=publisher" --format "{{.ID}}")
+          echo "Waiting for 2 seconds before running .NET testing iteration $i"
+          sleep 2
+          echo "Running .NET testing iteration $i"
+          dotnet test --configuration Release --logger:"console;verbosity=detailed"
+        done
+      working-directory: ./src/tests/integrationTest
+
+    - name: docker stop
+      run: docker stop $(docker ps -q)
+      working-directory: ./src/tests/integrationTest
+
+    - name: Upload chaos_script.log as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: chaos-script-log
+        path: ./src/tests/integrationTest/autoScript/chaos_script.log
