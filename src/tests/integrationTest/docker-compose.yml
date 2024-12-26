@@ -1,0 +1,67 @@
+version: '3.8'
+services:
+  myrabbitmq:
+    image: rabbitmq:3-management
+    hostname: ${RABBITMQ_HOSTNAME}
+    restart: always
+    ports:
+      - "8888:15672"
+      - "5672:5672"
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status"]
+      start_period: 10s
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    command: rabbitmq-server
+    expose:
+      - 5672
+      - 15672
+    networks:
+      - net-mq
+  publisher:
+    build: ./message_client
+    #image: dog830228/mq_poc-publisher
+    environment:
+      - QUEUENAME=${QUEUENAME}
+      - RABBITMQ_HOSTNAME=${RABBITMQ_HOSTNAME}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - EXCHANGENAME=${EXCHANGENAME}
+      - DBConnection=${DBConnection}
+      - TOTAL_MESSAGE_COUNT=${TOTAL_MESSAGE_COUNT}
+    depends_on:
+      myrabbitmq:
+        condition: service_healthy
+    networks:
+      - net-mq
+  tradeworker:
+    build: ./trade_worker
+    stop_grace_period: 30s
+    environment:
+      - QUEUENAME=${QUEUENAME}
+      - RABBITMQ_HOSTNAME=${RABBITMQ_HOSTNAME}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - DBConnection=${DBConnection}
+    depends_on:
+      - publisher
+    networks:
+      - net-mq
+  sqlserver:
+    image: dog830228/silo-db:1.1
+    hostname: sqlsever
+    ports:
+      - "1433:1433"
+    restart: always
+    networks:
+      - net-mq
+    environment:
+      ACCEPT_EULA: 'Y'
+      SA_PASSWORD: 'test.123'
+      MSSQL_PID: 'Standard'
+networks:
+  net-mq:
+    driver: bridge
+
+
+
+
