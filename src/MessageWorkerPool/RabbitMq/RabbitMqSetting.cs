@@ -21,11 +21,6 @@ namespace MessageWorkerPool.RabbitMq
             return new Uri(GetConnectionString());
         }
 
-        public string GetUriWithoutPassword()
-        {
-            return $"amqp://{UserName}:*******@{HostName}:{Port}";
-        }
-
         public override string GetConnectionString()
         {
             return $"amqp://{UserName}:{Password}@{HostName}:{Port}";

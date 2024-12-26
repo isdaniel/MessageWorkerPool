@@ -62,7 +62,6 @@ namespace MessageWorkerPool.RabbitMq
             Setting = setting;
             _workerSetting = workerSetting;
             Channel = channel;
-            Logger.LogInformation($"RabbitMq connection string: {setting.GetUriWithoutPassword()}");
         }
 
         protected virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo) { 
