@@ -1,24 +1,13 @@
-using Microsoft.Extensions.DependencyInjection;
-using MessageWorkerPool.Extensions;
 using MessageWorkerPool.RabbitMq;
 using FluentAssertions;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Microsoft.VisualStudio.TestPlatform.CommunicationUtilities;
 using MessageWorkerPool.Test.Utility;
-using FluentAssertions.Common;
-using System.Diagnostics;
 using System.Text.Json;
-using Microsoft.Extensions.Logging.Abstractions;
 using RabbitMQ.Client;
 using MessageWorkerPool.Utilities;
 using RabbitMQ.Client.Events;
 using System.Text;
-using Newtonsoft.Json.Linq;
-using System;
-using System.Diagnostics.Tracing;
-using System.Threading;
 
 namespace MessageWorkerPool.Test
 {
