@@ -8,6 +8,8 @@ using RabbitMQ.Client;
 using MessageWorkerPool.Utilities;
 using RabbitMQ.Client.Events;
 using System.Text;
+using System.Threading.Channels;
+using System;
 
 namespace MessageWorkerPool.Test
 {
@@ -30,10 +32,11 @@ namespace MessageWorkerPool.Test
             return new RabbitMqWorkerTester(setting, workerSetting, _channel.Object, _loggerFactoryMock.Object);
         }
 
-        private BasicDeliverEventArgs CreateBasicDeliverEventArgs(string message, string correlationId)
+        private BasicDeliverEventArgs CreateBasicDeliverEventArgs(string message, string correlationId,string replyQueueName = null)
         {
             var basicProperties = new Mock<IBasicProperties>();
             basicProperties.Setup(p => p.CorrelationId).Returns(correlationId);
+            basicProperties.Setup(p => p.ReplyTo).Returns(replyQueueName);
 
             return new BasicDeliverEventArgs
             {
@@ -111,9 +114,9 @@ namespace MessageWorkerPool.Test
 
             VerifyLogging(message);
 
-            var expectedJson = JsonSerializer.Serialize(new MessageInputTask { Message = message, CorrelationId = correlationId });
+            var expectedJson = JsonSerializer.Serialize(new MessageInputTask { Message = message, CorrelationId = correlationId , Headers = null});
             worker.mockStandardInput.Verify(x => x.WriteLineAsync(It.Is<string>(x => x == expectedJson)), Times.Once);
-            worker.mockStandardOutput.Verify(x => x.ReadLineAsync(), Times.AtLeastOnce);
+            worker.mockStandardOutput.Verify( x =>  x.ReadLineAsync(), Times.AtLeastOnce);
         }
 
         [Theory]
@@ -135,6 +138,56 @@ namespace MessageWorkerPool.Test
 
             _channel.Verify(c => c.BasicAck(123, false), Times.Exactly(expectAck ? 1 : 0));
             _channel.Verify(c => c.BasicNack(123, false, true), Times.Exactly(expectNack ? 1 : 0));
+
+            VerifyLogging(message);
+
+            var expectedJson = JsonSerializer.Serialize(new MessageInputTask { Message = message, CorrelationId = correlationId });
+            worker.mockStandardInput.Verify(x => x.WriteLineAsync(It.Is<string>(x => x == expectedJson)), Times.Once);
+            worker.mockStandardOutput.Verify(x => x.ReadLineAsync(), Times.AtLeastOnce);
+
+            await worker.GracefulShutDownAsync(CancellationToken.None);
+            worker.mockProcess.Verify(x => x.Close(), Times.Once);
+            worker.mockProcess.Verify(x => x.Dispose(), Times.Once);
+            worker.mockProcess.Verify(x => x.WaitForExit(), Times.Once);
+            worker.Status.Should().Be(WorkerStatus.Stopped);
+            worker.Channel.Should().BeNull();
+            worker.AsyncEventHandler.Should().BeNull();
+            _loggerMock.Verify(l => l.Log(
+                              LogLevel.Information,
+                              It.IsAny<EventId>(),
+                              It.Is<It.IsAnyType>((v, t) => v.ToString().Contains($"RabbitMQ Conn Closed!!!!")),
+                              null,
+                              It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                              Times.Once);
+        }
+
+        [Theory]
+        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Status\":200}", true, false,false, int.MaxValue)]
+        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Status\":200}", true, false,false, int.MaxValue, "my-reQueueName")]
+        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE_WITH_REPLY\",\"Status\":201}", true, false, true, int.MaxValue,"my-reQueueName")]
+        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"{\\u0022Headers\\u0022:{\\u0022TEST header\\u0022:\\u0022TEST content\\u0022},\\u0022Message\\u0022:\\u0022test msg\\u0022,\\u0022CorrelationId\\u0022:null}\",\"Status\":201}", true, false, true, int.MaxValue,"my-reQueueName123")]
+        public async Task AsyncEventHandler_Shutdown_ToReplyQueue(string message, string correlationId, string outputResponse, bool expectAck, bool expectNack,bool expectRequeue, int tokenTimeout, string replyQueueName = null)
+        {
+            var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+            var eventArgs = CreateBasicDeliverEventArgs(message, correlationId, replyQueueName);
+            var cts = new CancellationTokenSource(tokenTimeout);
+            worker.Status.Should().Be(WorkerStatus.WaitForInit);
+            await InitializeWorker(worker, cts);
+            worker.Status.Should().Be(WorkerStatus.Running);
+            worker.mockStandardInput.Setup(x => x.WriteLineAsync(It.IsAny<string>()));
+            worker.mockStandardOutput.Setup(x => x.ReadLineAsync()).ReturnsAsync(outputResponse);
+            var expectOutput = JsonSerializer.Deserialize<MessageOutputTask>(outputResponse);
+            var expectOutputBytes = Encoding.UTF8.GetBytes(expectOutput?.Message);
+            await worker.AsyncEventHandler(worker, eventArgs);
+
+            _channel.Verify(c => c.BasicAck(123, false), Times.Exactly(expectAck ? 1 : 0));
+            _channel.Verify(c => c.BasicNack(123, false, true), Times.Exactly(expectNack ? 1 : 0));
+            _channel.Verify(c => c.BasicPublish(
+                "",
+                replyQueueName,
+                false,
+                null,
+                It.Is<ReadOnlyMemory<byte>>(mm=> mm.ToArray().SequenceEqual(expectOutputBytes))), Times.Exactly(expectRequeue ? 1 : 0));
 
             VerifyLogging(message);
 

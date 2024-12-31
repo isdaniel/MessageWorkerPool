@@ -27,6 +27,7 @@ namespace WorkerProcessSample
                 try
                 {
                     MessageInputTask task = input.ToMessageInputTask();
+                    
                     if (task == null)
                     {
                         //todo handle...
