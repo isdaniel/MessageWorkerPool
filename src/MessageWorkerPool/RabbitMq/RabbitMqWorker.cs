@@ -103,7 +103,7 @@ namespace MessageWorkerPool.RabbitMq
                 ReceiveEvent = async (sender, e) =>
                 {
                     var correlationId = e.BasicProperties.CorrelationId;
-
+                    
                     using (Logger.BeginScope($"[Pid: {Process.Id}][CorrelationId: {correlationId}]"))
                     {
                         if (_stoppingStatus.Contains(Status) || token.IsCancellationRequested)
@@ -157,7 +157,8 @@ namespace MessageWorkerPool.RabbitMq
                 var task = new MessageInputTask
                 {
                     Message = message,
-                    CorrelationId = correlationId
+                    CorrelationId = correlationId,
+                    Headers = e.BasicProperties.Headers
                 };
 
                 await Process.StandardInput.WriteLineAsync(task.ToJsonMessage()).ConfigureAwait(false);
@@ -167,6 +168,8 @@ namespace MessageWorkerPool.RabbitMq
                 if (_messageDoneMap.Contains(taskOutput.Status))
                 {
                     AcknowledgeMessage(e);
+                    //push to another queue by 
+                    ReplyQueue(e, taskOutput);
                 }
                 else
                 {
@@ -177,6 +180,17 @@ namespace MessageWorkerPool.RabbitMq
             {
                 RejectMessage(e);
                 Logger.LogWarning(ex, "Processing message encountered an exception!");
+            }
+        }
+
+        private void ReplyQueue(BasicDeliverEventArgs e, MessageOutputTask taskOutput)
+        {
+            if (!string.IsNullOrEmpty(e.BasicProperties.ReplyTo) &&
+                taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY)
+            {
+                var replyMessage = Encoding.UTF8.GetBytes(taskOutput.Message);
+                Logger.LogInformation($"reply queue request re-queue name is {e.BasicProperties.ReplyTo},replyMessage : {replyMessage}");
+                Channel.BasicPublish("", e.BasicProperties.ReplyTo, null, replyMessage);
             }
         }
 

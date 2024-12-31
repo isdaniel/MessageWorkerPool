@@ -1,14 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using RabbitMQ.Client.Events;
 
-Console.WriteLine(GetEnvironmentVariable("DBConnection"));
-
+System.Console.WriteLine("Integration Testing Start");
 InitialTestingTable();
 using (var messageClient = new MessageClient<BalanceModel>(
         new MessageClientOptions
@@ -22,7 +22,8 @@ using (var messageClient = new MessageClient<BalanceModel>(
         }, NullLogger.Instance))
 {
     messageClient.InitialQueue();
-    for (int i = 0; i < GetEnvironmentVariableAsUShort("TOTAL_MESSAGE_COUNT", 10000); i++)
+    int totalMessageCount = GetEnvironmentVariableAsUShort("TOTAL_MESSAGE_COUNT", 10000);
+    for (int i = 1; i <= totalMessageCount; i++)
     {
         Random rnd = new Random();
         var model = new BalanceModel()
@@ -31,10 +32,19 @@ using (var messageClient = new MessageClient<BalanceModel>(
             UserName = Guid.NewGuid().ToString("N")
         };
 
-        messageClient.SendMessage("*", model, $"{Environment.MachineName}_{Guid.NewGuid().ToString("N")}");
+        string replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
+        // if(i == totalMessageCount){
+        //     replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
+        //     Console.WriteLine($"ReplyQueueName:{replyQueueName}");
+        // }
+
+        messageClient.SendMessage("*", model, $"{Environment.MachineName}_{Guid.NewGuid().ToString("N")}",new Dictionary<string, object>() {
+            { "targetCount",totalMessageCount}
+        },replyQueueName);
 
         await InsertUserBalanceAsync(model);
     }
+
 }
 
 void InitialTestingTable()

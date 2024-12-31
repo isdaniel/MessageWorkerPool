@@ -15,7 +15,7 @@ public class MessageClient : MessageClientBase
     public string SendMessage(string routing,
         string intput,
         string correlationId = null,
-        Dictionary<string, string> headers = null)
+        Dictionary<string, object> headers = null)
     {
         correlationId = this.PublishMessage(
            routing,
@@ -41,13 +41,15 @@ public class MessageClient<TInputMessage> : MessageClientBase
     public string SendMessage(string routing,
         TInputMessage intput,
         string correlationId = null,
-        Dictionary<string, string> headers = null)
+        Dictionary<string, object> headers = null,
+        string replyQueueName = null)
     {
         correlationId = this.PublishMessage(
            routing,
            Encoding.UTF8.GetBytes(JsonSerializer.Serialize(intput)),
            correlationId,
-           headers);
+           headers,
+           replyQueueName);
 
         return correlationId;
     }
