@@ -188,9 +188,8 @@ namespace MessageWorkerPool.RabbitMq
             if (!string.IsNullOrEmpty(e.BasicProperties.ReplyTo) &&
                 taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY)
             {
-                var replyMessage = Encoding.UTF8.GetBytes(taskOutput.Message);
-                Logger.LogInformation($"reply queue request re-queue name is {e.BasicProperties.ReplyTo},replyMessage : {replyMessage}");
-                Channel.BasicPublish("", e.BasicProperties.ReplyTo, null, replyMessage);
+                Logger.LogInformation($"reply queue request reply queue name is {e.BasicProperties.ReplyTo},replyMessage : {taskOutput.Message}");
+                Channel.BasicPublish("", e.BasicProperties.ReplyTo, null, Encoding.UTF8.GetBytes(taskOutput.Message));
             }
         }
 
