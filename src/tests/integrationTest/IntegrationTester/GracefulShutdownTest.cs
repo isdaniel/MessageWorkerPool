@@ -14,7 +14,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Xunit.Sdk;
 
-public class RabbitMqSetting 
+public class RabbitMqSetting
 {
     /// <summary>
     /// The uri to use for the connection.
@@ -41,7 +41,7 @@ public class RabbitMqSetting
     public string HostName { get; set; }
 }
 
-public class ResponeMessage
+public class ResponseMessage
 {
     public int ProcessCount { get; set; }
     public string Status { get; set; }
@@ -73,7 +73,6 @@ public class GracefulShutdownTest
             try
             {
                 var message = Encoding.UTF8.GetString(e.Body.Span);
-                //var responseMessage = JsonSerializer.Deserialize<ResponeMessage>(message);
                 Console.WriteLine($"IntegrationTest Finish, reply message: {message}");
                 // Perform any additional checks on responseMessage if needed
                 messageReceived.SetResult();
@@ -96,7 +95,7 @@ public class GracefulShutdownTest
         expectedList.Count.Should().Be(totalMessageCount);
         ValidateBalanceComparison(actualList, expectedList);
 
-        channel.QueuePurge(replayQueueName);
+        channel.QueueDelete(replayQueueName);
     }
 
     private RabbitMqSetting GetRabbitMqSettings() => new RabbitMqSetting
