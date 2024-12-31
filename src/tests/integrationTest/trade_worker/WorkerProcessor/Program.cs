@@ -39,7 +39,7 @@ namespace WorkerProcessSample
                 {
                     return new MessageOutputTask()
                     {
-                        Message = JsonSerializer.Serialize(new ResponeMessage() {
+                        Message = JsonSerializer.Serialize(new ResponseMessage() {
                             ProcessCount = currentCount,
                             Status = "OK!"
                         }),
