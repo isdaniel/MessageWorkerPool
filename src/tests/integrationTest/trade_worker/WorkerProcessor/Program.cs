@@ -17,7 +17,7 @@ namespace WorkerProcessSample
         public int Balance { get; set; }
     }
 
-    public class ResponeMessage {
+    public class ResponseMessage {
         public int ProcessCount { get; set; }
         public string Status { get; set; }
     }
