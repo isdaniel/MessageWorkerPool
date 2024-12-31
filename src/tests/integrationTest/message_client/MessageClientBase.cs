@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text;
@@ -37,7 +37,8 @@ public abstract class MessageClientBase : IDisposable
         string routing,
         byte[] messageBody,
         string correlationId = null,
-        Dictionary<string, string> messageHeaders = null)
+        Dictionary<string, object> messageHeaders = null,
+        string replyQueueName = null)
     {
         if (string.IsNullOrWhiteSpace(correlationId))
         {
@@ -55,25 +56,21 @@ public abstract class MessageClientBase : IDisposable
         IBasicProperties props = null;//this.PrepareMessageProperties(correlationId, messageHeaders);
         {
             props = channel.CreateBasicProperties();
-
             props.ContentType = "application/json";
             if (this._options.MessageExpirationTimeout != null)
             {
                 props.Expiration = this._options.MessageExpirationTimeout.Value.TotalMilliseconds.ToString();
             }
 
-            props.Headers = new Dictionary<string, object>();
-            if (messageHeaders != null)
+            if (!string.IsNullOrWhiteSpace(replyQueueName))
             {
-                foreach (string key in messageHeaders.Keys)
-                {
-                    props.Headers[key] = Encoding.UTF8.GetBytes(messageHeaders[key] ?? "");
-                }
+                props.ReplyTo = replyQueueName;
+                channel.QueueDeclare(replyQueueName, true, false, false, null);
             }
 
-            props.CorrelationId = correlationId; //Guid.NewGuid().ToString("N");
+            props.Headers = messageHeaders;
 
-            this.SetupMessageProperties(props);
+            props.CorrelationId = correlationId;
         }
 
         channel.BasicPublish(
@@ -83,10 +80,6 @@ public abstract class MessageClientBase : IDisposable
                body: messageBody);
 
         return correlationId;
-    }
-
-    protected virtual void SetupMessageProperties(IBasicProperties props)
-    {
     }
 
     public virtual void Dispose()

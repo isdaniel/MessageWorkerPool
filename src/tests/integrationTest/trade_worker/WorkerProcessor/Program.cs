@@ -17,6 +17,11 @@ namespace WorkerProcessSample
         public int Balance { get; set; }
     }
 
+    public class ResponseMessage {
+        public int ProcessCount { get; set; }
+        public string Status { get; set; }
+    }
+
     class Program
     {
         static async Task Main(string[] args)
@@ -25,13 +30,30 @@ namespace WorkerProcessSample
             await processor.DoWorkAsync(async (task) =>
             {
                 var model = JsonSerializer.Deserialize<BalanceModel>(task.Message);
-                await InsertOrUpdateUserBalanceAsync(model);
+                var currentCount = await AddUserBalanceAndGetCountAsync(model);
+
+                if (task.Headers is not null
+                && task.Headers.TryGetValue("targetCount",out var obj)
+                && int.TryParse(obj.ToString(), out var targetCount)
+                && targetCount == currentCount)
+                {
+                    return new MessageOutputTask()
+                    {
+                        Message = JsonSerializer.Serialize(new ResponseMessage() {
+                            ProcessCount = currentCount,
+                            Status = "OK!"
+                        }),
+                        Status = MessageStatus.MESSAGE_DONE_WITH_REPLY
+                    };
+                }
                 return new MessageOutputTask()
                 {
                     Message = $"Processing.. UserName:{model.UserName}, Balance:{model.Balance}",
                     Status = MessageStatus.MESSAGE_DONE
                 };
-            });
+
+
+            }).ConfigureAwait(false);
         }
         static string GetEnvironmentVariable(string key, string defaultValue = null)
         {
@@ -42,19 +64,22 @@ namespace WorkerProcessSample
             }
             return value ?? defaultValue;
         }
-        static async Task<int> InsertOrUpdateUserBalanceAsync(BalanceModel model)
+        static async Task<int> AddUserBalanceAndGetCountAsync(BalanceModel model)
         {
-            if (model == null)
-            {
-                throw new NullReferenceException(nameof(model));
-            }
+            ArgumentNullException.ThrowIfNull(model);
 
             using (var conn = new SqlConnection(GetEnvironmentVariable("DBConnection")))
             {
                 await conn.OpenAsync().ConfigureAwait(false);
-                var query = @"INSERT INTO dbo.Act (UserName,Balance) VALUES (@UserName, @Balance)";
 
-                return await conn.ExecuteAsync(query, new
+                var query = @"
+INSERT INTO dbo.Act (UserName, Balance) VALUES (@UserName, @Balance);
+
+SELECT COUNT(*) AS CurrentCount
+FROM dbo.Act;";
+
+                // Use QuerySingleAsync or QuerySingleOrDefaultAsync to retrieve the count
+                return await conn.QuerySingleAsync<int>(query, new
                 {
                     model.UserName,
                     model.Balance
