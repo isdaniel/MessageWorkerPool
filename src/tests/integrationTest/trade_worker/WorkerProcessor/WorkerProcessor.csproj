@@ -12,7 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.35" />
-    <PackageReference Include="MessageWorkerPool" Version="0.0.0.6" />
+    <PackageReference Include="MessageWorkerPool" Version="*" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
   </ItemGroup>
 
