@@ -87,7 +87,6 @@ public class GracefulShutdownTest
 
         channel.BasicQos(0, 1, false);
         channel.BasicConsume(replayQueueName, false, consumer);
-
         // Act
         await messageReceived.Task; // Wait asynchronously for the message
         var expectedList = (await GetAllBalanceFrom("dbo.Expect")).ToList();
@@ -96,6 +95,8 @@ public class GracefulShutdownTest
         // Assert
         expectedList.Count.Should().Be(totalMessageCount);
         ValidateBalanceComparison(actualList, expectedList);
+
+        channel.QueuePurge(replayQueueName);
     }
 
     private RabbitMqSetting GetRabbitMqSettings() => new RabbitMqSetting
