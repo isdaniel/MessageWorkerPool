@@ -6,20 +6,13 @@
 
 
 	<ItemGroup>
-		 <!--<PackageReference Include="MessageWorkerPool" Version="*" />--> 
+		<PackageReference Include="MessageWorkerPool" Version="*" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
 		<PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
-	</ItemGroup>
-
-
-	<ItemGroup>
-	  <Reference Include="MessageWorkerPool">
-	    <HintPath>..\..\..\..\..\samples\WorkerSample\lib\MessageWorkerPool.dll</HintPath>
-	  </Reference>
 	</ItemGroup>
 
 

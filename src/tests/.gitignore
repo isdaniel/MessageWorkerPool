@@ -253,3 +253,5 @@ artifacts/
 *DS_Store
 *.sln.ide
 
+
+.codegpt
