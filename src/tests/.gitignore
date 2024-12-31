@@ -252,5 +252,4 @@ artifacts/
 *.userprefs
 *DS_Store
 *.sln.ide
-*/*/ProcessBin/*
-*/trade_worker/TradeWorker/lib*
+
