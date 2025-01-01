@@ -32,11 +32,11 @@ using (var messageClient = new MessageClient<BalanceModel>(
             UserName = Guid.NewGuid().ToString("N")
         };
 
-        string replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
-        // if(i == totalMessageCount){
-        //     replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
-        //     Console.WriteLine($"ReplyQueueName:{replyQueueName}");
-        // }
+        string replyQueueName = string.Empty;
+        if(i == totalMessageCount){
+            replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
+            Console.WriteLine($"ReplyQueueName:{replyQueueName}");
+        }
 
         messageClient.SendMessage("*", model, $"{Environment.MachineName}_{Guid.NewGuid().ToString("N")}",new Dictionary<string, object>() {
             { "targetCount",totalMessageCount}

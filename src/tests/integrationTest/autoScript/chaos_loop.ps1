@@ -1,4 +1,4 @@
-$envFilePath = "./env/.env"
+$envFilePath = "./env/.local_env"
 if (Test-Path $envFilePath) {
     Get-Content $envFilePath | ForEach-Object {
         if ($_ -match "^\s*([^#][^=]+?)\s*=\s*(.+)\s*$") {
@@ -16,9 +16,6 @@ if (Test-Path $envFilePath) {
 } else {
     Write-Host "Error: .env file not found."
 }
-
-$env:RABBITMQ_HOSTNAME = "127.0.0.1"
-$env:DBConnection = "Data Source=127.0.0.1;Initial Catalog=orleans;User ID=sa;Password=test.123;TrustServerCertificate=true;"
 
 for ($i = 1; $i -le 5; $i++) {
     Write-Host "Execution #$i"

@@ -53,7 +53,7 @@ public abstract class MessageClientBase : IDisposable
             arguments: null);
 
 
-        IBasicProperties props = null;//this.PrepareMessageProperties(correlationId, messageHeaders);
+        IBasicProperties props = null;
         {
             props = channel.CreateBasicProperties();
             props.ContentType = "application/json";
@@ -74,10 +74,10 @@ public abstract class MessageClientBase : IDisposable
         }
 
         channel.BasicPublish(
-               exchange: _options.ExchangeName,
-               routingKey: routing,
-               basicProperties: props,
-               body: messageBody);
+                exchange: _options.ExchangeName,
+                routingKey: routing,
+                basicProperties: props,
+                body: messageBody);
 
         return correlationId;
     }

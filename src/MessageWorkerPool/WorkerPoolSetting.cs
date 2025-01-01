@@ -13,7 +13,7 @@ namespace MessageWorkerPool
         /// <summary>
         /// execute cli or commnad line
         /// </summary>
-        public string CommnadLine { get; set; }
+        public string CommandLine { get; set; }
         /// <summary>
         /// parameter of cli or commnad line
         /// </summary>

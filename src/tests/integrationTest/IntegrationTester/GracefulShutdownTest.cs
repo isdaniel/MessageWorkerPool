@@ -93,8 +93,6 @@ public class GracefulShutdownTest
         // Assert
         expectedList.Count.Should().Be(totalMessageCount);
         ValidateBalanceComparison(actualList, expectedList);
-
-        channel.QueueDelete(replayQueueName);
     }
 
     private static void ValidateBalanceComparison(List<BalanceModel> actList, List<BalanceModel> expectList)

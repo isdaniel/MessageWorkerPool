@@ -46,12 +46,6 @@ namespace MessageWorkerPool.Test
             };
         }
 
-        private async Task InitializeWorker(RabbitMqWorkerTester worker, CancellationTokenSource cts = null)
-        {
-            cts ??= new CancellationTokenSource();
-            await worker.InitWorkerAsync(cts.Token);
-        }
-
         private void VerifyLogging(string message)
         {
             _loggerMock.Verify(l => l.Log(
@@ -61,6 +55,20 @@ namespace MessageWorkerPool.Test
                 null,
                 It.IsAny<Func<It.IsAnyType, Exception, string>>()),
                 Times.Once);
+        }
+
+        [Fact]
+        public void newRabbitMqWorker_ShouldThrowNullReferenceException_WhenWorkerSettingIsNull()
+        {
+            Action act = () => new RabbitMqWorker(null,null,null,null);
+            act.Should().Throw<ArgumentNullException>("*workerSetting*");
+        }
+
+        [Fact]
+        public void newRabbitMqWorker_ShouldThrowNullReferenceException_WhenRabbitMqsettingIsNull()
+        {
+            Action act = () => new RabbitMqWorker(null, new WorkerPoolSetting(), null, null);
+            act.Should().Throw<ArgumentNullException>("*setting*");
         }
 
         [Fact]
@@ -85,7 +93,7 @@ namespace MessageWorkerPool.Test
 
             worker.Status.Should().Be(WorkerStatus.WaitForInit);
 
-            await InitializeWorker(worker);
+            await worker.InitWorkerAsync(CancellationToken.None);
 
             worker.Status.Should().Be(WorkerStatus.Running);
             worker.mockProcess.Verify(x => x.Start(), Times.Once);
@@ -102,7 +110,7 @@ namespace MessageWorkerPool.Test
             var eventArgs = CreateBasicDeliverEventArgs(message, correlationId);
             var cts = new CancellationTokenSource(tokenTimeout);
             worker.Status.Should().Be(WorkerStatus.WaitForInit);
-            await InitializeWorker(worker, cts);
+            await worker.InitWorkerAsync(cts.Token);
             worker.Status.Should().Be(WorkerStatus.Running);
             worker.mockStandardInput.Setup(x => x.WriteLineAsync(It.IsAny<string>()));
             worker.mockStandardOutput.Setup(x => x.ReadLineAsync()).ReturnsAsync(outputResponse);
@@ -121,19 +129,18 @@ namespace MessageWorkerPool.Test
 
         [Theory]
         [InlineData("This is Test Message", "test-correlation-id", "Invalid Json Output String", false, true, 1000)]
-        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Status\":200}", true, false, int.MaxValue)]
-        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE_WITH_REPLY\",\"Status\":201}", true, false, int.MaxValue)]
-        public async Task AsyncEventHandler_Shutdown_SendingMessage(string message, string correlationId, string outputResponse, bool expectAck, bool expectNack, int tokenTimeout)
+        [InlineData("This is Test Message", "test-correlation-id", "", false, true, 1000)]
+        [InlineData("This is Test Message", "test-correlation-id", null, false, true, 1000)]
+        public async Task AsyncEventHandler_Shutdown_OutputMeesage_InvalidJson(string message, string correlationId, string outputResponse, bool expectAck, bool expectNack, int tokenTimeout)
         {
             var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
             var eventArgs = CreateBasicDeliverEventArgs(message, correlationId);
             var cts = new CancellationTokenSource(tokenTimeout);
             worker.Status.Should().Be(WorkerStatus.WaitForInit);
-            await InitializeWorker(worker, cts);
+            await worker.InitWorkerAsync(cts.Token);
             worker.Status.Should().Be(WorkerStatus.Running);
             worker.mockStandardInput.Setup(x => x.WriteLineAsync(It.IsAny<string>()));
             worker.mockStandardOutput.Setup(x => x.ReadLineAsync()).ReturnsAsync(outputResponse);
-
             await worker.AsyncEventHandler(worker, eventArgs);
 
             _channel.Verify(c => c.BasicAck(123, false), Times.Exactly(expectAck ? 1 : 0));
@@ -145,7 +152,7 @@ namespace MessageWorkerPool.Test
             worker.mockStandardInput.Verify(x => x.WriteLineAsync(It.Is<string>(x => x == expectedJson)), Times.Once);
             worker.mockStandardOutput.Verify(x => x.ReadLineAsync(), Times.AtLeastOnce);
 
-            await worker.GracefulShutDownAsync(CancellationToken.None);
+            await worker.GracefulShutDownAsync(cts.Token);
             worker.mockProcess.Verify(x => x.Close(), Times.Once);
             worker.mockProcess.Verify(x => x.Dispose(), Times.Once);
             worker.mockProcess.Verify(x => x.WaitForExit(), Times.Once);
@@ -163,6 +170,7 @@ namespace MessageWorkerPool.Test
 
         [Theory]
         [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Status\":200}", true, false,false, int.MaxValue)]
+        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE_WITH_REPLY\",\"Status\":201}", true, false, false, int.MaxValue)]
         [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Status\":200}", true, false,false, int.MaxValue, "my-reQueueName")]
         [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE_WITH_REPLY\",\"Status\":201}", true, false, true, int.MaxValue,"my-reQueueName")]
         [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"{\\u0022Headers\\u0022:{\\u0022TEST header\\u0022:\\u0022TEST content\\u0022},\\u0022Message\\u0022:\\u0022test msg\\u0022,\\u0022CorrelationId\\u0022:null}\",\"Status\":201}", true, false, true, int.MaxValue,"my-reQueueName123")]
@@ -172,7 +180,7 @@ namespace MessageWorkerPool.Test
             var eventArgs = CreateBasicDeliverEventArgs(message, correlationId, replyQueueName);
             var cts = new CancellationTokenSource(tokenTimeout);
             worker.Status.Should().Be(WorkerStatus.WaitForInit);
-            await InitializeWorker(worker, cts);
+            await worker.InitWorkerAsync(cts.Token);
             worker.Status.Should().Be(WorkerStatus.Running);
             worker.mockStandardInput.Setup(x => x.WriteLineAsync(It.IsAny<string>()));
             worker.mockStandardOutput.Setup(x => x.ReadLineAsync()).ReturnsAsync(outputResponse);
@@ -218,7 +226,7 @@ namespace MessageWorkerPool.Test
             var eventArgs = CreateBasicDeliverEventArgs("This is Test Message", "test-correlation-id");
 
             var cts = new CancellationTokenSource(300);
-            await InitializeWorker(worker, cts);
+            await worker.InitWorkerAsync(cts.Token);
 
             worker.mockStandardInput.Setup(x => x.WriteLineAsync(It.IsAny<string>()));
             worker.mockStandardOutput.Setup(x => x.ReadLineAsync()).ReturnsAsync(string.Empty);
