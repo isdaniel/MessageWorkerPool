@@ -1,0 +1,7 @@
+RABBITMQ_HOSTNAME=127.0.0.1
+RABBITMQ_PORT=5672
+DBConnection="Data Source=127.0.0.1;Initial Catalog=orleans;User ID=sa;Password=test.123;TrustServerCertificate=true;"
+QUEUENAME=integration-queue
+EXCHANGENAME=integration-exchange
+TOTAL_MESSAGE_COUNT=20000
+REPLY_QUEUE=integrationTesting_replyQ

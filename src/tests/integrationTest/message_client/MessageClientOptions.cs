@@ -1,7 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-public class MessageClientOptions 
+public class MessageClientOptions
 {
     /// <summary>
     /// The uri to use for the connection.
@@ -33,9 +33,6 @@ public class MessageClientOptions
     /// </summary>
     public string HostName { get; set; }
     public string ExchangeName { get; set; }
-
-    public int ConnectionRetryCount = 3;
-    public TimeSpan ConnectionRetryTimeout = TimeSpan.FromSeconds(30);
 
     public TimeSpan? MessageExpirationTimeout = null;
 

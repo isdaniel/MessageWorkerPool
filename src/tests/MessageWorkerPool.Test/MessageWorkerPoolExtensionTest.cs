@@ -22,9 +22,9 @@ namespace MessageWorkerPool.Test
                 PrefetchTaskCount = 1
             };
 
-            var workPoolSetting = new WorkerPoolSetting() { 
+            var workPoolSetting = new WorkerPoolSetting() {
                 Arguments = "dummy_Arguments",
-                CommnadLine = "dummy_CommnadLine",
+                CommandLine = "dummy_CommandLine",
                 WorkerUnitCount = 5,
 
             };
@@ -44,7 +44,7 @@ namespace MessageWorkerPool.Test
             workerSetting.Should().NotBeNull();
             workerSetting.Length.Should().Be(1); // Assuming one setting is registered
             workerSetting[0].Arguments.Should().Be("dummy_Arguments");
-            workerSetting[0].CommnadLine.Should().Be("dummy_CommnadLine");
+            workerSetting[0].CommandLine.Should().Be("dummy_CommandLine");
             workerSetting[0].WorkerUnitCount.Should().Be(5);
             workerSetting.Should().NotBeNull();
 
@@ -77,7 +77,7 @@ namespace MessageWorkerPool.Test
             var workPoolSetting1 = new WorkerPoolSetting()
             {
                 Arguments = "dummy_Arguments",
-                CommnadLine = "dummy_CommnadLine",
+                CommandLine = "dummy_CommandLine",
                 WorkerUnitCount = 5,
 
             };
@@ -85,7 +85,7 @@ namespace MessageWorkerPool.Test
             var workPoolSetting2 = new WorkerPoolSetting()
             {
                 Arguments = "dummy_pyargs",
-                CommnadLine = "dummy_py",
+                CommandLine = "dummy_py",
                 WorkerUnitCount = 3,
 
             };
@@ -108,11 +108,11 @@ namespace MessageWorkerPool.Test
             workerSetting.Should().NotBeNull();
             workerSetting.Length.Should().Be(2); // Assuming one setting is registered
             workerSetting[0].Arguments.Should().Be("dummy_Arguments");
-            workerSetting[0].CommnadLine.Should().Be("dummy_CommnadLine");
+            workerSetting[0].CommandLine.Should().Be("dummy_CommandLine");
             workerSetting[0].WorkerUnitCount.Should().Be(5);
 
             workerSetting[1].Arguments.Should().Be("dummy_pyargs");
-            workerSetting[1].CommnadLine.Should().Be("dummy_py");
+            workerSetting[1].CommandLine.Should().Be("dummy_py");
             workerSetting[1].WorkerUnitCount.Should().Be(3);
             workerSetting.Should().NotBeNull();
 
@@ -158,7 +158,7 @@ namespace MessageWorkerPool.Test
             var workPoolSetting1 = new WorkerPoolSetting()
             {
                 Arguments = "dummy_Arguments",
-                CommnadLine = "dummy_CommnadLine",
+                CommandLine = "dummy_CommandLine",
                 WorkerUnitCount = 5,
 
             };
@@ -166,7 +166,7 @@ namespace MessageWorkerPool.Test
             var workPoolSetting2 = new WorkerPoolSetting()
             {
                 Arguments = "dummy_pyargs",
-                CommnadLine = "dummy_py",
+                CommandLine = "dummy_py",
                 WorkerUnitCount = 3,
 
             };
@@ -184,11 +184,11 @@ namespace MessageWorkerPool.Test
             workerSetting.Should().NotBeNull();
             workerSetting.Length.Should().Be(2); // Assuming one setting is registered
             workerSetting[0].Arguments.Should().Be("dummy_Arguments");
-            workerSetting[0].CommnadLine.Should().Be("dummy_CommnadLine");
+            workerSetting[0].CommandLine.Should().Be("dummy_CommandLine");
             workerSetting[0].WorkerUnitCount.Should().Be(5);
 
             workerSetting[1].Arguments.Should().Be("dummy_pyargs");
-            workerSetting[1].CommnadLine.Should().Be("dummy_py");
+            workerSetting[1].CommandLine.Should().Be("dummy_py");
             workerSetting[1].WorkerUnitCount.Should().Be(3);
             workerSetting.Should().NotBeNull();
 
@@ -225,7 +225,7 @@ namespace MessageWorkerPool.Test
             using var host = hostBuilder.AddRabbitMqWorkerPool(rabbitMqSetting, new WorkerPoolSetting()
             {
                 Arguments = "dummy_Arguments",
-                CommnadLine = "dummy_CommnadLine",
+                CommandLine = "dummy_CommandLine",
                 WorkerUnitCount = 5,
             }).Build();
             var serviceProvider = host.Services;
