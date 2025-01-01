@@ -33,8 +33,11 @@ jobs:
       uses: actions/setup-dotnet@v4
     - name: Load environment variables from .env file & Doing integration test
       run: |
+        cp ./env/.env ./.env_testing
+        sed -i 's/^RABBITMQ_HOSTNAME=.*/RABBITMQ_HOSTNAME=127.0.0.1/' ./.env_testing
+        sed -i 's/Data Source=sqlserver/Data Source=127.0.0.1/' ./.env_testing
         set -a
-        source ./env/.env
+        source ./.env_testing
         set +a
         for i in {1..5}
         do
