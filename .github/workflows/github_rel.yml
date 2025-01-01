@@ -44,8 +44,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+    - uses: actions/checkout@v2
+
     - name: Read Release Notes
-      uses: actions/checkout@v2
       id: read_notes
       run: |
         TAG_VERSION=${{ github.ref_name }}
@@ -59,10 +60,12 @@ jobs:
           echo "Error: Release note file not found for version $TAG_VERSION!"
           exit 1
         fi
+
     - name: Download Build Artifacts
       uses: actions/download-artifact@v3
       with:
         name: build-artifacts
+
 
     - name: Create GitHub Release
       uses: actions/create-release@v1
