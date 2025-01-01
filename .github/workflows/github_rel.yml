@@ -21,24 +21,18 @@ jobs:
       working-directory: ./src
 
     - name: Build
-      run: dotnet build --configuration Release
+      run: dotnet build --configuration Release --output ./bin/release
       working-directory: ./src
 
     - name: Test
       run: dotnet test --no-build --verbosity normal --configuration Release
       working-directory: src/tests/MessageWorkerPool.Test
 
-    - name: Package Release Artifacts
-      run: |
-        mkdir -p release
-        cp ./src/bin/Release/* release/
-      working-directory: ./src
-
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v3
       with:
         name: build-artifacts
-        path: ./src/release/
+        path: ./bin/release/
 
   release:
     runs-on: ubuntu-latest
