@@ -114,16 +114,13 @@ namespace MessageWorkerPool.RabbitMq
                             return;
                         }
 
-                        var message = Encoding.UTF8.GetString(e.Body.Span.ToArray());
-                        Logger.LogDebug($"received message:{message}");
-                        await ProcessingMessage(e, message, correlationId, token).ConfigureAwait(false);
+                        await ProcessingMessage(e, correlationId, token).ConfigureAwait(false);
                     }
                 };
                 _consumer.Received += ReceiveEvent;
                 Channel.BasicQos(0, Setting.PrefetchTaskCount, false);
                 Channel.BasicConsume(Setting.QueueName, false, _consumer);
                 Logger.LogInformation($"Starting.. Channel ChannelNumber {Channel.ChannelNumber}");
-                Logger.LogDebug($"Worker running!");
             }
 
             await Task.CompletedTask;
@@ -148,12 +145,15 @@ namespace MessageWorkerPool.RabbitMq
         /// StandardOutput: MESSAGE_DONE or MESSAGE_DONE_WITH_REPLY = Finish task, we can do BasicAck, otherwise will wait for signal that we can ack.
         /// </summary>
         /// <param name="e"></param>
-        /// <param name="message"></param>
+        /// <param name="correlationId"></param>
+        /// <param name="token"></param>
         /// <returns></returns>
-        private async Task ProcessingMessage(BasicDeliverEventArgs e, string message, string correlationId, CancellationToken token)
+        private async Task ProcessingMessage(BasicDeliverEventArgs e, string correlationId, CancellationToken token)
         {
             try
             {
+                var message = Encoding.UTF8.GetString(e.Body.Span.ToArray());
+                Logger.LogDebug($"received message:{message}");
                 var task = new MessageInputTask
                 {
                     Message = message,
