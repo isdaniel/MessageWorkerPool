@@ -31,7 +31,7 @@ jobs:
     - name: Package Release Artifacts
       run: |
         mkdir -p release
-        cp ./MessageWorkerPool/bin/Release/* release/
+        cp -r ./MessageWorkerPool/bin/Release/* release/
       working-directory: ./src
 
     - name: Upload Build Artifacts
