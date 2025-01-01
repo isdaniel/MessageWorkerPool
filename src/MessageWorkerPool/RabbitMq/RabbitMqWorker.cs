@@ -88,7 +88,7 @@ namespace MessageWorkerPool.RabbitMq
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
-                FileName = _workerSetting.CommnadLine,
+                FileName = _workerSetting.CommandLine,
                 Arguments = _workerSetting.Arguments,
                 CreateNoWindow = true,
                 StandardOutputEncoding = Encoding.UTF8,
