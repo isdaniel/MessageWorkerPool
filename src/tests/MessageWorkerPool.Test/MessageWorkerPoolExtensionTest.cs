@@ -17,7 +17,6 @@ namespace MessageWorkerPool.Test
                 HostName = "localhost",
                 Password = "abcd1234",
                 Port = 5672,
-                QueueName = "queue1",
                 UserName = "user1",
                 PrefetchTaskCount = 1
             };
@@ -26,7 +25,7 @@ namespace MessageWorkerPool.Test
                 Arguments = "dummy_Arguments",
                 CommandLine = "dummy_CommandLine",
                 WorkerUnitCount = 5,
-
+                QueueName = "queue1",
             };
 
             var host = new HostBuilder()
@@ -69,7 +68,6 @@ namespace MessageWorkerPool.Test
                 HostName = "localhost",
                 Password = "abcd1234",
                 Port = 5672,
-                QueueName = "queue1",
                 UserName = "user1",
                 PrefetchTaskCount = 1
             };
@@ -79,7 +77,7 @@ namespace MessageWorkerPool.Test
                 Arguments = "dummy_Arguments",
                 CommandLine = "dummy_CommandLine",
                 WorkerUnitCount = 5,
-
+                QueueName = "queue1"
             };
 
             var workPoolSetting2 = new WorkerPoolSetting()
@@ -148,7 +146,6 @@ namespace MessageWorkerPool.Test
                 HostName = "localhost",
                 Password = "abcd1234",
                 Port = 5672,
-                QueueName = "queue1",
                 UserName = "user1",
                 PrefetchTaskCount = 1,
             };
@@ -160,7 +157,7 @@ namespace MessageWorkerPool.Test
                 Arguments = "dummy_Arguments",
                 CommandLine = "dummy_CommandLine",
                 WorkerUnitCount = 5,
-
+                QueueName = "queue1",
             };
 
             var workPoolSetting2 = new WorkerPoolSetting()
@@ -214,7 +211,6 @@ namespace MessageWorkerPool.Test
                 HostName = "localhost",
                 Password = "abcd1234",
                 Port = 5672,
-                QueueName = "queue1",
                 UserName = "user1",
                 PrefetchTaskCount = 1,
             };
