@@ -119,7 +119,7 @@ namespace MessageWorkerPool.RabbitMq
                 };
                 _consumer.Received += ReceiveEvent;
                 Channel.BasicQos(0, Setting.PrefetchTaskCount, false);
-                Channel.BasicConsume(Setting.QueueName, false, _consumer);
+                Channel.BasicConsume(_workerSetting.QueueName, false, _consumer);
                 Logger.LogInformation($"Starting.. Channel ChannelNumber {Channel.ChannelNumber}");
             }
 

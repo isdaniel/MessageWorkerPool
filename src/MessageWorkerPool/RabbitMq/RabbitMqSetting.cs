@@ -30,7 +30,6 @@ namespace MessageWorkerPool.RabbitMq
         /// Rabbit Mq Port
         /// </summary>
         public ushort Port { get; set; }
-        public string QueueName { get; set; }
         public string UserName { get; set; }
         /// <summary>
         /// Password to use when authenticating to the server.
