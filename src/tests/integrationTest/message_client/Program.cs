@@ -13,7 +13,7 @@ InitialTestingTable();
 using (var messageClient = new MessageClient<BalanceModel>(
         new MessageClientOptions
         {
-            QueueName = GetEnvironmentVariable("QUEUENAME"),
+            QueueName = GetEnvironmentVariable("BALANCEWORKER_QUEUE"),
             UserName = GetEnvironmentVariable("RABBITMQ_USERNAME", "guest"),
             Password = GetEnvironmentVariable("RABBITMQ_PASSWORD", "guest"),
             HostName = GetEnvironmentVariable("RABBITMQ_HOSTNAME"),

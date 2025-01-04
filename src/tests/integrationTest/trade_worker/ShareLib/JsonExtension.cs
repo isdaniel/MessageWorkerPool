@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MessageWorkerPool.Utilities;
 
-namespace WorkerProcessSample
+namespace ShareLib
 {
     public static class JsonExtension {
         public static string ToIgnoreMessage(this string message) {

@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Collections.Concurrent;
 using System.Text;
 using Dapper;
 using FluentAssertions;
@@ -8,39 +9,6 @@ using Microsoft.Data.SqlClient;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Xunit.Sdk;
-
-public class RabbitMqSetting
-{
-    /// <summary>
-    /// The uri to use for the connection.
-    /// </summary>
-    /// <returns></returns>
-    public Uri GetUri()
-    {
-        return new Uri($"amqp://{UserName}:{Password}@{HostName}:{Port}");
-    }
-
-    /// <summary>
-    /// Rabbit Mq Port
-    /// </summary>
-    public ushort Port { get; set; }
-    public string UserName { get; set; }
-    /// <summary>
-    /// Password to use when authenticating to the server.
-    /// </summary>
-    public string Password { get; set; }
-
-    /// <summary>
-    /// The host to connect to
-    /// </summary>
-    public string HostName { get; set; }
-}
-
-public class ResponseMessage
-{
-    public int ProcessCount { get; set; }
-    public string Status { get; set; }
-}
 
 public class GracefulShutdownTest
 {
@@ -58,14 +26,14 @@ public class GracefulShutdownTest
             HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME") ?? "127.0.0.1",
             Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort port) ? port : (ushort)5672,
         };
-        var replayQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
+        var replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
 
         var factory = new ConnectionFactory { Uri = rabbitMqSetting.GetUri() };
         var messageReceived = new TaskCompletionSource();
 
         using var connection = factory.CreateConnection();
         using var channel = connection.CreateModel();
-        channel.QueueDeclare(replayQueueName, true, false, false, null);
+        channel.QueueDeclare(replyQueueName, true, false, false, null);
         var consumer = new EventingBasicConsumer(channel);
         consumer.Received += (sender, e) =>
         {
@@ -84,7 +52,7 @@ public class GracefulShutdownTest
         };
 
         channel.BasicQos(0, 1, false);
-        channel.BasicConsume(replayQueueName, false, consumer);
+        channel.BasicConsume(replyQueueName, false, consumer);
         // Act
         await messageReceived.Task; // Wait asynchronously for the message
         var expectedList = (await GetAllBalanceFrom("dbo.Expect")).ToList();
@@ -93,6 +61,92 @@ public class GracefulShutdownTest
         // Assert
         expectedList.Count.Should().Be(totalMessageCount);
         ValidateBalanceComparison(actualList, expectedList);
+    }
+
+    [Theory]
+    [InlineData(-20, 6765)]
+    [InlineData(-19, 4181)]
+    [InlineData(-18, 2584)]
+    [InlineData(-17, 1597)]
+    [InlineData(-16, 987)]
+    [InlineData(-15, 610)]
+    [InlineData(-14, 377)]
+    [InlineData(-13, 233)]
+    [InlineData(-12, 144)]
+    [InlineData(-11, 89)]
+    [InlineData(-10, 55)]
+    [InlineData(-9, 34)]
+    [InlineData(-8, 21)]
+    [InlineData(-7, 13)]
+    [InlineData(-6, 8)]
+    [InlineData(-5, 5)]
+    [InlineData(-4, 3)]
+    [InlineData(-3, 2)]
+    [InlineData(-2, 1)]
+    [InlineData(-1, 1)]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(2, 1)]
+    [InlineData(3, 2)]
+    [InlineData(4, 3)]
+    [InlineData(5, 5)]
+    [InlineData(6, 8)]
+    [InlineData(7, 13)]
+    [InlineData(8, 21)]
+    [InlineData(9, 34)]
+    [InlineData(10, 55)]
+    [InlineData(11, 89)]
+    [InlineData(12, 144)]
+    [InlineData(13, 233)]
+    [InlineData(14, 377)]
+    [InlineData(15, 610)]
+    [InlineData(16, 987)]
+    [InlineData(17, 1597)]
+    [InlineData(18, 2584)]
+    [InlineData(19, 4181)]
+    [InlineData(20, 6765)]
+    public async Task WorkerConsumeMessage_FibonacciWorkerTest(int input, int expect)
+    {
+        var rabbitMqSetting = new RabbitMqSetting
+        {
+            UserName = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? "guest",
+            Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
+            HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME") ?? "127.0.0.1",
+            Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort port) ? port : (ushort)5672,
+        };
+        var queueName = Environment.GetEnvironmentVariable("FIBONACCI_QUEUE");
+        var factory = new ConnectionFactory { Uri = rabbitMqSetting.GetUri() };
+
+        var messageReceived = new TaskCompletionSource();
+        using var connection = factory.CreateConnection();
+        using var channel = connection.CreateModel();
+        var consumer = new EventingBasicConsumer(channel);
+        var prop = channel.CreateBasicProperties();
+        prop.CorrelationId = Guid.NewGuid().ToString("N");
+        prop.ReplyTo = $"{Environment.GetEnvironmentVariable("FIBONACCI_QUEUE")}_{prop.CorrelationId}";
+        channel.QueueDeclare(prop.ReplyTo, true, false, false, null);
+
+        consumer.Received += (sender, e) =>
+        {
+            try
+            {
+                var message = Encoding.UTF8.GetString(e.Body.Span);
+                // Perform any additional checks on responseMessage if needed
+                messageReceived.SetResult();
+                channel.BasicAck(e.DeliveryTag, false);
+            }
+            catch (Exception ex)
+            {
+                messageReceived.SetException(ex);
+            }
+        };
+
+        channel.BasicQos(0, 1, false);
+        channel.BasicConsume(prop.ReplyTo, false, consumer);
+
+        await messageReceived.Task;
+        //assert
+        channel.QueueDelete(prop.ReplyTo).Should().BeGreaterThan(0);
     }
 
     private static void ValidateBalanceComparison(List<BalanceModel> actList, List<BalanceModel> expectList)
