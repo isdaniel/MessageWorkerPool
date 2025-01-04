@@ -2,7 +2,9 @@ FROM mcr.microsoft.com/dotnet/sdk:6.0 as build
 COPY ./ /sourceCode
 WORKDIR /sourceCode
 RUN dotnet restore
-RUN dotnet publish -c Release -o /app && cp ./ProcessBin /app/ProcessBin -R
+RUN dotnet publish -c Release -o /app && \
+    cp ./BalanceWorkerApp /app/BalanceWorkerApp -R && \
+    cp ./FibonacciWorkerApp /app/FibonacciWorkerApp -R
 
 # WorkerPool runtime
 FROM mcr.microsoft.com/dotnet/aspnet:6.0 as server

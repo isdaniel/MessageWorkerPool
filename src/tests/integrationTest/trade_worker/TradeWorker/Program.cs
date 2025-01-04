@@ -25,22 +25,36 @@ public class Program
             .ConfigureLogging(logging =>
             {
                 logging.ClearProviders();
-                logging.AddConsole(options => {
+                logging.AddConsole(options =>
+                {
                     options.FormatterName = ConsoleFormatterNames.Simple;
                 });
-                logging.Services.Configure<SimpleConsoleFormatterOptions>(options => {
+                logging.Services.Configure<SimpleConsoleFormatterOptions>(options =>
+                {
                     options.IncludeScopes = true;
                     options.TimestampFormat = " yyyy-MM-dd HH:mm:ss ";
                 });
             }).AddRabbitMqWorkerPool(new RabbitMqSetting
             {
-                QueueName = Environment.GetEnvironmentVariable("QUEUENAME"),
                 UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
                 Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
-                Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort) 5672,
+                Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
                 PrefetchTaskCount = 3
-            }, new WorkerPoolSetting() { WorkerUnitCount = 1, CommnadLine = "dotnet", Arguments = @"./ProcessBin/WorkerProcessor.dll" }
-            );
+            }, new WorkerPoolSetting[]
+            {
+                new WorkerPoolSetting() {
+                    WorkerUnitCount = 1,
+                    CommandLine = "dotnet",
+                    Arguments = @"./BalanceWorkerApp/WorkerProcessor.dll" ,
+                    QueueName = Environment.GetEnvironmentVariable("BALANCEWORKER_QUEUE")
+                },
+                new WorkerPoolSetting() {
+                    WorkerUnitCount = 5,
+                    CommandLine = "dotnet",
+                    Arguments = @"./FibonacciWorkerApp/RPC_FibonacciWorker.dll",
+                    QueueName = Environment.GetEnvironmentVariable("FIBONACCI_QUEUE")
+                },
+            });
 
 }

@@ -23,7 +23,7 @@ services:
     build: ./message_client
     #image: dog830228/mq_poc-publisher
     environment:
-      - QUEUENAME=${QUEUENAME}
+      - BALANCEWORKER_QUEUE=${BALANCEWORKER_QUEUE}
       - RABBITMQ_HOSTNAME=${RABBITMQ_HOSTNAME}
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - EXCHANGENAME=${EXCHANGENAME}
@@ -39,11 +39,12 @@ services:
     build: ./trade_worker
     stop_grace_period: 30s
     environment:
-      - QUEUENAME=${QUEUENAME}
+      - BALANCEWORKER_QUEUE=${BALANCEWORKER_QUEUE}
       - RABBITMQ_HOSTNAME=${RABBITMQ_HOSTNAME}
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - DBConnection=${DBConnection}
       - REPLY_QUEUE=${REPLY_QUEUE}
+      - FIBONACCI_QUEUE=${FIBONACCI_QUEUE}
     depends_on:
       - publisher
     networks:

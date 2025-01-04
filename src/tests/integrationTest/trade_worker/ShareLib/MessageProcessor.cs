@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using MessageWorkerPool.Utilities;
 
-namespace WorkerProcessSample
+namespace ShareLib
 {
     public class MessageProcessor
     {

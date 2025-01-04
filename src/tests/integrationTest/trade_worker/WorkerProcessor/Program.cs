@@ -1,13 +1,10 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
 using MessageWorkerPool.Utilities;
 using Microsoft.Data.SqlClient;
+using ShareLib;
 
 namespace WorkerProcessSample
 {
