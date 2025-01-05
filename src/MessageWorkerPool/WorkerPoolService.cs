@@ -35,8 +35,7 @@ namespace MessageWorkerPool
                 _workerPools.Add(workerPool);
             }
 
-            token.WaitHandle.WaitOne();
-            _logger.LogInformation("ExecuteAsync Finish!");
+            _logger.LogInformation("WorkerPool initialization Finish!");
         }
 
         public override async Task StopAsync(CancellationToken cancellationToken)
