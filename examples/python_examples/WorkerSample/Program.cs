@@ -5,12 +5,7 @@ using MessageWorkerPool.RabbitMq;
 using Microsoft.Extensions.Logging;
 using MessageWorkerPool.Extensions;
 using System;
-using System.Security.Cryptography;
-using System.IO.Pipes;
-using System.Diagnostics;
 using System.Threading.Tasks;
-using System.IO;
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Console;
 
 public class Program
@@ -25,10 +20,12 @@ public class Program
             .ConfigureLogging(logging =>
             {
                 logging.ClearProviders();
-                logging.AddConsole(options => {
+                logging.AddConsole(options =>
+                {
                     options.FormatterName = ConsoleFormatterNames.Simple;
                 });
-                logging.Services.Configure<SimpleConsoleFormatterOptions>(options => {
+                logging.Services.Configure<SimpleConsoleFormatterOptions>(options =>
+                {
                     options.IncludeScopes = true;
                     options.TimestampFormat = " yyyy-MM-dd HH:mm:ss ";
                 });
@@ -37,9 +34,9 @@ public class Program
                 UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
                 Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
-                Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort) 5672,
+                Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
                 PrefetchTaskCount = 3
-            }, new WorkerPoolSetting() { WorkerUnitCount = 8, CommnadLine = "python3", Arguments = @"./worker.py", QueueName = Environment.GetEnvironmentVariable("QUEUENAME"),}
+            }, new WorkerPoolSetting() { WorkerUnitCount = 8, CommandLine = "python3", Arguments = @"./worker.py", QueueName = Environment.GetEnvironmentVariable("QUEUENAME"), }
             );
 
 }

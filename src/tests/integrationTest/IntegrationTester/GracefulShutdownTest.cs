@@ -87,8 +87,8 @@ public class GracefulShutdownTest
 
         SendingMessage(input, correlationId, queueName, replyQueue);
 
-       
-        (int act,IModel channel,IConnection connection) = await WaitforMessageResult(replyQueue,(message) => int.Parse(message));
+
+        (int act,IModel channel,IConnection connection) = await WaitForMessageResult(replyQueue,(message) => int.Parse(message));
 
         //assert
         Action beforeDelFunc = () => channel.QueueDeclarePassive(replyQueue);

@@ -68,25 +68,23 @@ public class Program
             .ConfigureLogging(logging =>
             {
                 logging.ClearProviders();
-                logging.AddConsole(options =>
-                {
+                logging.AddConsole(options => {
                     options.FormatterName = ConsoleFormatterNames.Simple;
                 });
-                logging.Services.Configure<SimpleConsoleFormatterOptions>(options =>
-                {
+                logging.Services.Configure<SimpleConsoleFormatterOptions>(options => {
                     options.IncludeScopes = true;
                     options.TimestampFormat = " yyyy-MM-dd HH:mm:ss ";
                 });
-            })
-            .AddRabbitMqWorkerPool(new RabbitMqSetting
+            }).AddRabbitMqWorkerPool(new RabbitMqSetting
             {
-                QueueName = Environment.GetEnvironmentVariable("QUEUENAME"),
                 UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
                 Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
-                Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
+                Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort) 5672,
                 PrefetchTaskCount = 3
-            }, new WorkerPoolSetting() { WorkerUnitCount = 8, CommandLine = "python3", Arguments = @"./worker.py" });
+            }, new WorkerPoolSetting() { WorkerUnitCount = 9, CommandLine = "dotnet", Arguments = @"./ProcessBin/WorkerProcessSample.dll", QueueName = Environment.GetEnvironmentVariable("QUEUENAME"), }
+            );
+
 }
 ```
 
@@ -110,20 +108,27 @@ The Protocol between worker and task process are use JSON format with standardIn
 
 Currently, there are some status represnt status
 
-* IGNORE_MESSAGE (-1) : append message to standard output.
-* MESSAGE_DONE (200) : tell worker this case can ack from message queue service.
-* MESSAGE_DONE_WITH_REPLY (201) [not implemented yet]
+* IGNORE_MESSAGE (-1) : Append the message to the standard output without further processing.
+  - `Status = -1` via Standard Output, task process tell worker this isn't a response nor ack message, only for record via Standard Output.
 
-Status = -1 via Standard Output, task process tell worker this isn't a response nor ack message, only for record via Standard Output.
-
-```
+```json
 {"Message":"this is func task.., message Send Time[2024/12/19 06:59:43:646] this message belong with groupA, Sleeping 1s","Status":-1}
 ```
 
-Status = 200 via Standard Output, task process tell worker the task can be acked that mean it was finished.
+* MESSAGE_DONE (200) : Notify the worker that this case can be acknowledged by the message queue service.
+  - `Status = 200` via Standard Output, task process tell worker the task can be acked that mean it was finished.
 
-```
+```json
 {"Message":"message done","Status":200}
+```
+
+* MESSAGE_DONE_WITH_REPLY (201) : Please ensure we satisfied below steps for supporting RPC.
+   1. The client side cdoe must provide `ReplyTo` information.
+   2. task process will use the `Message` column in the JSON payload to reply with the queue information.
+   3. Here is an example: When `Status = 201` is sent via Standard Output, the task process instructs the worker to output the task's JSON Message, such as 1010, which must then be sent to the reply queue.
+
+```json
+{"Message":1010,"Status":201}
 ```
 
 We can write our own worker by different program language (I have provided python and .net sample in this repository).
