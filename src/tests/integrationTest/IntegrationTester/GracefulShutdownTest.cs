@@ -26,7 +26,7 @@ public class GracefulShutdownTest
             Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort port) ? port : (ushort)5672,
         };
         var replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
-        (ResponseMessage act, IModel channel, IConnection connection) = await WaitforMessageResult(replyQueueName, (message) => JsonSerializer.Deserialize<ResponseMessage>(message));
+        (ResponseMessage act, IModel channel, IConnection connection) = await WaitForMessageResult(replyQueueName, (message) => JsonSerializer.Deserialize<ResponseMessage>(message));
 
         var expectedList = (await GetAllBalanceFrom("dbo.Expect")).ToList();
         var actualList = (await GetAllBalanceFrom("dbo.Act")).ToList();
