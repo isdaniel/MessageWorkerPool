@@ -23,6 +23,7 @@ namespace MessageWorkerPool.RabbitMq
         public RabbitMqSetting Setting { get; }
         protected AsyncEventHandler<BasicDeliverEventArgs> ReceiveEvent;
         private AsyncEventingBasicConsumer _consumer;
+        volatile int _messageCount = 0;
         internal IModel Channel { get; private set; }
         protected IProcessWrapper Process { get; private set; }
         private readonly WorkerPoolSetting _workerSetting;
@@ -113,8 +114,9 @@ namespace MessageWorkerPool.RabbitMq
                             //it should return, if the worker are processing GracefulShutDown.
                             return;
                         }
-
+                        Interlocked.Increment(ref _messageCount);
                         await ProcessingMessage(e, correlationId, token).ConfigureAwait(false);
+                        Interlocked.Decrement(ref _messageCount);
                     }
                 };
                 _consumer.Received += ReceiveEvent;
@@ -255,6 +257,12 @@ namespace MessageWorkerPool.RabbitMq
         {
             Logger.LogInformation("Executing GracefulShutDownAsync!");
             Status = WorkerStatus.Stopping;
+
+            while (Interlocked.CompareExchange(ref _messageCount, 0, 0) != 0)
+            {
+                Logger.LogInformation($"Waiting for all messages to be processed. Current messageCount: {_messageCount}");
+                await Task.Delay(100, token).ConfigureAwait(false); 
+            }
 
             if (ReceiveEvent != null)
             {
