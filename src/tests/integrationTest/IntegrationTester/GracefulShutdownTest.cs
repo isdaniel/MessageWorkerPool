@@ -104,7 +104,6 @@ public class GracefulShutdownTest
 
     private async Task<(TResult, IModel, IConnection)> WaitForMessageResult<TResult>(string replyQueue,Func<string,TResult> action)
     {
-        TaskCompletionSource messageReceived;
         IConnection connection;
         IModel channel;
 
@@ -117,19 +116,17 @@ public class GracefulShutdownTest
         };
 
         var factory = new ConnectionFactory { Uri = rabbitMqSetting.GetUri() };
-        messageReceived = new TaskCompletionSource();
+        TaskCompletionSource<TResult> messageReceived = new TaskCompletionSource<TResult>();
         connection = factory.CreateConnection();
         channel = connection.CreateModel();
         channel.QueueDeclare(replyQueue, true, false, false, null);
         var consumer = new EventingBasicConsumer(channel);
-        TResult res = default(TResult);
         consumer.Received += (sender, e) =>
         {
             try
             {
                 var message = Encoding.UTF8.GetString(e.Body.Span);
-                res = action(message);
-                messageReceived.SetResult();
+                messageReceived.SetResult(action(message));
                 channel.BasicAck(e.DeliveryTag, false);
             }
             catch (Exception ex)
@@ -141,7 +138,7 @@ public class GracefulShutdownTest
         channel.BasicQos(0, 1, false);
         channel.BasicConsume(replyQueue, false, consumer);
 
-        await messageReceived.Task;
+        TResult res = await messageReceived.Task;
 
         return (res, channel, connection);
     }
