@@ -255,24 +255,28 @@ namespace MessageWorkerPool.RabbitMq
 
         public async Task GracefulShutDownAsync(CancellationToken token)
         {
-            Logger.LogInformation("Executing GracefulShutDownAsync!");
-            Status = WorkerStatus.Stopping;
-
-            while (Interlocked.CompareExchange(ref _messageCount, 0, 0) != 0)
+            using (Logger.BeginScope($"[Pid: {Process.Id}]"))
             {
-                Logger.LogInformation($"Waiting for all messages to be processed. Current messageCount: {_messageCount}");
-                await Task.Delay(100, token).ConfigureAwait(false); 
-            }
+                Logger.LogInformation("Executing GracefulShutDownAsync!");
+                Status = WorkerStatus.Stopping;
 
-            if (ReceiveEvent != null)
-            {
-                _consumer.Received -= ReceiveEvent;
-                ReceiveEvent = null;
-            }
+                while (Interlocked.CompareExchange(ref _messageCount, 0, 0) != 0)
+                {
+                    Logger.LogInformation($"Waiting for all messages to be processed. Current messageCount: {_messageCount}");
+                    await Task.Delay(100, token).ConfigureAwait(false);
+                }
 
-            CloseProcess();
-            Status = WorkerStatus.Stopped;
-            await GracefulReleaseAsync(token);
+                if (ReceiveEvent != null)
+                {
+                    _consumer.Received -= ReceiveEvent;
+                    ReceiveEvent = null;
+                }
+
+                CloseProcess();
+                Status = WorkerStatus.Stopped;
+                await GracefulReleaseAsync(token);
+            }
+            
             this.Dispose();
             Logger.LogInformation("RabbitMQ Conn Closed!!!!");
         }
@@ -281,11 +285,9 @@ namespace MessageWorkerPool.RabbitMq
         {
             //Sending close message
             Process.StandardInput.WriteLine(MessageCommunicate.CLOSED_SIGNAL);
-            using (Logger.BeginScope($"[Pid: {Process.Id}]")) {
-                Logger.LogInformation($"Begin WaitForExit free resource....");
-                Process.WaitForExit();
-                Logger.LogInformation($"End WaitForExit and free resource....");
-            }
+            Logger.LogInformation($"Begin WaitForExit free resource....");
+            Process.WaitForExit();
+            Logger.LogInformation($"End WaitForExit and free resource....");
         }
 
         public void Dispose()
