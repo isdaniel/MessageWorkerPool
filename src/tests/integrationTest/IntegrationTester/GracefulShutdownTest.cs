@@ -102,7 +102,7 @@ public class GracefulShutdownTest
         connection.Close();
     }
 
-    private async Task<(TResult, IModel, IConnection)> WaitforMessageResult<TResult>(string replyQueue,Func<string,TResult> action)
+    private async Task<(TResult, IModel, IConnection)> WaitForMessageResult<TResult>(string replyQueue,Func<string,TResult> action)
     {
         TaskCompletionSource messageReceived;
         IConnection connection;
