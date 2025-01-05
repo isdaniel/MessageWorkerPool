@@ -23,6 +23,7 @@ namespace MessageWorkerPool.RabbitMq
         public RabbitMqSetting Setting { get; }
         protected AsyncEventHandler<BasicDeliverEventArgs> ReceiveEvent;
         private AsyncEventingBasicConsumer _consumer;
+        volatile int _messageCount = 0;
         internal IModel Channel { get; private set; }
         protected IProcessWrapper Process { get; private set; }
         private readonly WorkerPoolSetting _workerSetting;
@@ -113,8 +114,9 @@ namespace MessageWorkerPool.RabbitMq
                             //it should return, if the worker are processing GracefulShutDown.
                             return;
                         }
-
+                        Interlocked.Increment(ref _messageCount);
                         await ProcessingMessage(e, correlationId, token).ConfigureAwait(false);
+                        Interlocked.Decrement(ref _messageCount);
                     }
                 };
                 _consumer.Received += ReceiveEvent;
@@ -253,18 +255,28 @@ namespace MessageWorkerPool.RabbitMq
 
         public async Task GracefulShutDownAsync(CancellationToken token)
         {
-            Logger.LogInformation("Executing GracefulShutDownAsync!");
-            Status = WorkerStatus.Stopping;
-
-            if (ReceiveEvent != null)
+            using (Logger.BeginScope($"[Pid: {Process.Id}]"))
             {
-                _consumer.Received -= ReceiveEvent;
-                ReceiveEvent = null;
-            }
+                Logger.LogInformation("Executing GracefulShutDownAsync!");
+                Status = WorkerStatus.Stopping;
 
-            CloseProcess();
-            Status = WorkerStatus.Stopped;
-            await GracefulReleaseAsync(token);
+                while (Interlocked.CompareExchange(ref _messageCount, 0, 0) != 0)
+                {
+                    Logger.LogInformation($"Waiting for all messages to be processed. Current messageCount: {_messageCount}");
+                    await Task.Delay(100, token).ConfigureAwait(false);
+                }
+
+                if (ReceiveEvent != null)
+                {
+                    _consumer.Received -= ReceiveEvent;
+                    ReceiveEvent = null;
+                }
+
+                CloseProcess();
+                Status = WorkerStatus.Stopped;
+                await GracefulReleaseAsync(token);
+            }
+            
             this.Dispose();
             Logger.LogInformation("RabbitMQ Conn Closed!!!!");
         }
@@ -273,11 +285,9 @@ namespace MessageWorkerPool.RabbitMq
         {
             //Sending close message
             Process.StandardInput.WriteLine(MessageCommunicate.CLOSED_SIGNAL);
-            using (Logger.BeginScope($"[Pid: {Process.Id}]")) {
-                Logger.LogInformation($"Begin WaitForExit free resource....");
-                Process.WaitForExit();
-                Logger.LogInformation($"End WaitForExit and free resource....");
-            }
+            Logger.LogInformation($"Begin WaitForExit free resource....");
+            Process.WaitForExit();
+            Logger.LogInformation($"End WaitForExit and free resource....");
         }
 
         public void Dispose()
