@@ -34,13 +34,12 @@ public class Program
                 });
             }).AddRabbitMqWorkerPool(new RabbitMqSetting
             {
-                QueueName = Environment.GetEnvironmentVariable("QUEUENAME"),
                 UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
                 Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort) 5672,
                 PrefetchTaskCount = 3
-            }, new WorkerPoolSetting() { WorkerUnitCount = 9, CommnadLine = "dotnet", Arguments = @"./ProcessBin/WorkerProcessSample.dll" }
+            }, new WorkerPoolSetting() { WorkerUnitCount = 9, CommandLine = "dotnet", Arguments = @"./ProcessBin/WorkerProcessSample.dll", QueueName = Environment.GetEnvironmentVariable("QUEUENAME"), }
             );
 
 }
