@@ -197,7 +197,9 @@ namespace MessageWorkerPool.RabbitMq
                 taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY)
             {
                 Logger.LogDebug($"reply queue request reply queue name is {e.BasicProperties.ReplyTo},replyMessage : {taskOutput.Message}");
-                Channel.BasicPublish("", e.BasicProperties.ReplyTo, null, Encoding.UTF8.GetBytes(taskOutput.Message));
+
+                //TODO!! We could support let user fill queue or exchange name from worker protocol in future.
+                Channel.BasicPublish(string.Empty, e.BasicProperties.ReplyTo, null, Encoding.UTF8.GetBytes(taskOutput.Message));
             }
         }
 
