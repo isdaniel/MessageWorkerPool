@@ -1,4 +1,4 @@
-name: .NET
+name: examples-builder
 on:
   push:
     branches: [ main ]
@@ -20,6 +20,6 @@ jobs:
       with:
         dotnet-version: 6.0.x
 
-    - name: Restore dependencies
+    - name: Build
       run: dotnet build --configuration Release
-      working-directory: ./src/examples/${{ matrix.lang }}
+      working-directory: ./examples/${{ matrix.lang }}
