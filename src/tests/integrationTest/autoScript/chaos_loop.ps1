@@ -17,7 +17,7 @@ if (Test-Path $envFilePath) {
     Write-Host "Error: .env file not found."
 }
 
-for ($i = 1; $i -le 5; $i++) {
+for ($i = 1; $i -le 25; $i++) {
     Write-Host "Execution #$i"
     
     # Start the container
