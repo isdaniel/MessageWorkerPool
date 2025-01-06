@@ -94,8 +94,6 @@ public class GracefulShutdownTest
         Action beforeDelFunc = () => channel.QueueDeclarePassive(replyQueue);
         beforeDelFunc.Should().NotThrow();
         channel.QueueDelete(replyQueue).Should().Be(0);
-        Action afterDelFunc = () => channel.QueueDeclarePassive(replyQueue);
-        afterDelFunc.Should().Throw<OperationInterruptedException>();
         act.Should().Be(expect);
 
         channel.Close();

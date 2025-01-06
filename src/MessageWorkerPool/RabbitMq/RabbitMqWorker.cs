@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -38,6 +39,10 @@ namespace MessageWorkerPool.RabbitMq
             MessageStatus.MESSAGE_DONE,
             MessageStatus.MESSAGE_DONE_WITH_REPLY
         };
+
+        private readonly ConcurrentBag<ulong> _rejectMessageDeliveryTags = new ConcurrentBag<ulong>(){ };
+
+        protected AutoResetEvent _receivedWaitEvent = new AutoResetEvent(false);
 
         /// <summary>
         /// Worker status
@@ -109,14 +114,15 @@ namespace MessageWorkerPool.RabbitMq
                     {
                         if (_stoppingStatus.Contains(Status) || token.IsCancellationRequested)
                         {
-                            RejectMessage(e);
                             Logger.LogWarning($"doing GracefulShutDown reject message!");
                             //it should return, if the worker are processing GracefulShutDown.
+                            _rejectMessageDeliveryTags.Add(e.DeliveryTag);
                             return;
                         }
                         Interlocked.Increment(ref _messageCount);
                         await ProcessingMessage(e, correlationId, token).ConfigureAwait(false);
                         Interlocked.Decrement(ref _messageCount);
+                        _receivedWaitEvent.Set();
                     }
                 };
                 _consumer.Received += ReceiveEvent;
@@ -169,18 +175,18 @@ namespace MessageWorkerPool.RabbitMq
 
                 if (_messageDoneMap.Contains(taskOutput.Status))
                 {
-                    AcknowledgeMessage(e);
+                    AcknowledgeMessage(e.DeliveryTag);
                     //push to another queue
                     ReplyQueue(e, taskOutput);
                 }
                 else
                 {
-                    RejectMessage(e);
+                    RejectMessage(e.DeliveryTag);
                 }
             }
             catch (Exception ex)
             {
-                RejectMessage(e);
+                RejectMessage(e.DeliveryTag);
                 Logger.LogWarning(ex, "Processing message encountered an exception!");
             }
         }
@@ -232,16 +238,16 @@ namespace MessageWorkerPool.RabbitMq
             return taskOutput;
         }
 
-        private void AcknowledgeMessage(BasicDeliverEventArgs e)
+        private void AcknowledgeMessage(ulong deliveryTag)
         {
-            Channel.BasicAck(e.DeliveryTag, false);
-            Logger.LogDebug($"Channel ChannelNumber {Channel.ChannelNumber},Message {e.DeliveryTag} acknowledged.");
+            Channel.BasicAck(deliveryTag, false);
+            Logger.LogDebug($"Channel ChannelNumber {Channel.ChannelNumber},Message {deliveryTag} acknowledged.");
         }
 
-        private void RejectMessage(BasicDeliverEventArgs e)
+        private void RejectMessage(ulong deliveryTag)
         {
-            Channel.BasicNack(e.DeliveryTag,false, true);
-            Logger.LogDebug($"Channel ChannelNumber {Channel.ChannelNumber},Message {e.DeliveryTag} rejected.");
+            Channel.BasicNack(deliveryTag, false, true);
+            Logger.LogDebug($"Channel ChannelNumber {Channel.ChannelNumber},Message {deliveryTag} rejected.");
         }
 
         /// <summary>
@@ -263,8 +269,11 @@ namespace MessageWorkerPool.RabbitMq
                 while (Interlocked.CompareExchange(ref _messageCount, 0, 0) != 0)
                 {
                     Logger.LogInformation($"Waiting for all messages to be processed. Current messageCount: {_messageCount}");
-                    await Task.Delay(100, token).ConfigureAwait(false);
+                    _receivedWaitEvent.WaitOne();
                 }
+
+                //reject all messages from this Channel.
+                RejectRemainingMessages();
 
                 if (ReceiveEvent != null)
                 {
@@ -279,6 +288,17 @@ namespace MessageWorkerPool.RabbitMq
             
             this.Dispose();
             Logger.LogInformation("RabbitMQ Conn Closed!!!!");
+        }
+
+        private void RejectRemainingMessages()
+        {
+            Logger.LogInformation("Rejecting all remaining messages in the queue...");
+            Logger.LogInformation($"messages {_rejectMessageDeliveryTags.Count} are waiting for rejecting from the queue.");
+            foreach (var deliveryTag in _rejectMessageDeliveryTags)
+            {
+                RejectMessage(deliveryTag);
+            }
+            Logger.LogInformation("Rejected all remaining messages in the queue...");
         }
 
         private void CloseProcess()
