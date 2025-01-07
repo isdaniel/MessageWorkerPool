@@ -30,6 +30,7 @@ services:
       - DBConnection=${DBConnection}
       - TOTAL_MESSAGE_COUNT=${TOTAL_MESSAGE_COUNT}
       - REPLY_QUEUE=${REPLY_QUEUE}
+      - FIBONACCI_QUEUE=${FIBONACCI_QUEUE}
     depends_on:
       myrabbitmq:
         condition: service_healthy

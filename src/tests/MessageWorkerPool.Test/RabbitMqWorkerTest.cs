@@ -157,7 +157,7 @@ namespace MessageWorkerPool.Test
             worker.mockProcess.Verify(x => x.Dispose(), Times.Once);
             worker.mockProcess.Verify(x => x.WaitForExit(), Times.Once);
             worker.Status.Should().Be(WorkerStatus.Stopped);
-            worker.Channel.Should().BeNull();
+            worker.channel.Should().BeNull();
             worker.AsyncEventHandler.Should().BeNull();
             _loggerMock.Verify(l => l.Log(
                               LogLevel.Information,
@@ -208,7 +208,7 @@ namespace MessageWorkerPool.Test
             worker.mockProcess.Verify(x => x.Dispose(), Times.Once);
             worker.mockProcess.Verify(x => x.WaitForExit(), Times.Once);
             worker.Status.Should().Be(WorkerStatus.Stopped);
-            worker.Channel.Should().BeNull();
+            worker.channel.Should().BeNull();
             worker.AsyncEventHandler.Should().BeNull();
             _loggerMock.Verify(l => l.Log(
                               LogLevel.Information,

@@ -13,6 +13,10 @@ using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
+/// <summary>
+/// Represents a worker that processes messages from a RabbitMQ queue. 
+/// The worker communicates with an external process through standard input/output and handles message acknowledgment or rejection based on processing outcomes.
+/// </summary>
 namespace MessageWorkerPool.RabbitMq
 {
 
@@ -25,7 +29,7 @@ namespace MessageWorkerPool.RabbitMq
         protected AsyncEventHandler<BasicDeliverEventArgs> ReceiveEvent;
         private AsyncEventingBasicConsumer _consumer;
         volatile int _messageCount = 0;
-        internal IModel Channel { get; private set; }
+        internal IModel channel { get; private set; }
         protected IProcessWrapper Process { get; private set; }
         private readonly WorkerPoolSetting _workerSetting;
         private readonly ILoggerFactory _loggerFactory;
@@ -51,6 +55,15 @@ namespace MessageWorkerPool.RabbitMq
         protected ILogger<RabbitMqWorker> Logger { get; }
 
         private bool _disposed = false;
+		
+		/// <summary>
+		/// Initializes a new instance of the <see cref="RabbitMqWorker"/> class.
+		/// </summary>
+		/// <param name="setting">RabbitMQ settings.</param>
+		/// <param name="workerSetting">Worker pool settings.</param>
+		/// <param name="channel">RabbitMQ channel.</param>
+		/// <param name="loggerFactory">Logger factory instance.</param>
+		/// <exception cref="ArgumentNullException">Thrown when a required parameter is null.</exception>
         public RabbitMqWorker(
             RabbitMqSetting setting,
             WorkerPoolSetting workerSetting,
@@ -67,7 +80,7 @@ namespace MessageWorkerPool.RabbitMq
             Logger = _loggerFactory.CreateLogger<RabbitMqWorker>();
             Setting = setting;
             _workerSetting = workerSetting;
-            Channel = channel;
+            this.channel = channel;
         }
 
         protected virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo) { 
@@ -80,14 +93,13 @@ namespace MessageWorkerPool.RabbitMq
             return process;
         }
 
-        /// <summary>
-        /// Use standard input/output to communicate between worker Pool and worker.
-        /// </summary>
-        /// <param name="token"></param>
-        /// <returns></returns>
+		/// <summary>
+		/// Initializes the worker, setting up the external process and RabbitMQ consumer.
+		/// </summary>
+		/// <param name="token">Cancellation token for stopping the initialization.</param>
         public virtual async Task InitWorkerAsync(CancellationToken token)
         {
-            _consumer = new AsyncEventingBasicConsumer(Channel);
+            _consumer = new AsyncEventingBasicConsumer(channel);
             Process = CreateProcess(new ProcessStartInfo()
             {
                 RedirectStandardInput = true,
@@ -126,14 +138,17 @@ namespace MessageWorkerPool.RabbitMq
                     }
                 };
                 _consumer.Received += ReceiveEvent;
-                Channel.BasicQos(0, Setting.PrefetchTaskCount, false);
-                Channel.BasicConsume(_workerSetting.QueueName, false, _consumer);
-                Logger.LogInformation($"Starting.. Channel ChannelNumber {Channel.ChannelNumber}");
+                channel.BasicQos(0, Setting.PrefetchTaskCount, false);
+                channel.BasicConsume(_workerSetting.QueueName, false, _consumer);
+                Logger.LogInformation($"Starting.. Channel ChannelNumber {channel.ChannelNumber}");
             }
 
             await Task.CompletedTask;
         }
-
+		
+		/// <summary>
+		/// Starts the external process and begins reading from its error output stream.
+		/// </summary>
         private void StartProcess()
         {
             Process.Start();
@@ -152,10 +167,9 @@ namespace MessageWorkerPool.RabbitMq
         /// StandardInput: sending in message that get from MQ.
         /// StandardOutput: MESSAGE_DONE or MESSAGE_DONE_WITH_REPLY = Finish task, we can do BasicAck, otherwise will wait for signal that we can ack.
         /// </summary>
-        /// <param name="e"></param>
-        /// <param name="correlationId"></param>
-        /// <param name="token"></param>
-        /// <returns></returns>
+        /// <param name="e">Delivery event arguments containing the message details.</param>
+		/// <param name="correlationId">Correlation ID of the message.</param>
+		/// <param name="token">Cancellation token.</param>
         private async Task ProcessingMessage(BasicDeliverEventArgs e, string correlationId, CancellationToken token)
         {
             try
@@ -190,7 +204,12 @@ namespace MessageWorkerPool.RabbitMq
                 Logger.LogWarning(ex, "Processing message encountered an exception!");
             }
         }
-
+		
+		/// <summary>
+		/// Sends a reply message to a queue specified in the original message's reply-to property.
+		/// </summary>
+		/// <param name="e">Delivery event arguments containing the message details.</param>
+		/// <param name="taskOutput">Output task from the external process.</param>
         private void ReplyQueue(BasicDeliverEventArgs e, MessageOutputTask taskOutput)
         {
             if (!string.IsNullOrEmpty(e.BasicProperties.ReplyTo) &&
@@ -199,10 +218,18 @@ namespace MessageWorkerPool.RabbitMq
                 Logger.LogDebug($"reply queue request reply queue name is {e.BasicProperties.ReplyTo},replyMessage : {taskOutput.Message}");
 
                 //TODO!! We could support let user fill queue or exchange name from worker protocol in future.
-                Channel.BasicPublish(string.Empty, e.BasicProperties.ReplyTo, null, Encoding.UTF8.GetBytes(taskOutput.Message));
+                var properties = channel.CreateBasicProperties();
+                properties.ContentEncoding = "utf-8";
+                properties.ContentType = "application/json"; 
+                channel.BasicPublish(string.Empty, e.BasicProperties.ReplyTo, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
             }
         }
-
+		
+		/// <summary>
+		/// Reads and processes the output from the external process, handling task completion statuses.
+		/// </summary>
+		/// <param name="token">Cancellation token.</param>
+		/// <returns>The parsed output task from the external process.</returns>
         private async Task<MessageOutputTask> ReadAndProcessOutputAsync(CancellationToken token)
         {
             var taskOutput = new MessageOutputTask() {
@@ -242,14 +269,14 @@ namespace MessageWorkerPool.RabbitMq
 
         private void AcknowledgeMessage(ulong deliveryTag)
         {
-            Channel.BasicAck(deliveryTag, false);
-            Logger.LogDebug($"Channel ChannelNumber {Channel.ChannelNumber},Message {deliveryTag} acknowledged.");
+            channel.BasicAck(deliveryTag, false);
+            Logger.LogDebug($"Channel ChannelNumber {channel.ChannelNumber},Message {deliveryTag} acknowledged.");
         }
 
         private void RejectMessage(ulong deliveryTag)
         {
-            Channel.BasicNack(deliveryTag, false, true);
-            Logger.LogDebug($"Channel ChannelNumber {Channel.ChannelNumber},Message {deliveryTag} rejected.");
+            channel.BasicNack(deliveryTag, false, true);
+            Logger.LogDebug($"Channel ChannelNumber {channel.ChannelNumber},Message {deliveryTag} rejected.");
         }
 
         /// <summary>
@@ -260,7 +287,11 @@ namespace MessageWorkerPool.RabbitMq
         {
             await Task.CompletedTask;
         }
-
+		
+		/// <summary>
+		/// Gracefully shuts down the worker, ensuring all in-flight messages are processed or rejected.
+		/// </summary>
+		/// <param name="token">Cancellation token for stopping the shutdown process.</param>
         public async Task GracefulShutDownAsync(CancellationToken token)
         {
             using (Logger.BeginScope($"[Pid: {Process.Id}]"))
@@ -317,7 +348,11 @@ namespace MessageWorkerPool.RabbitMq
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-
+		
+		/// <summary>
+		/// Disposes managed resources.
+		/// </summary>
+		/// <param name="disposing">Indicates whether managed resources should be disposed.</param>
         protected virtual void Dispose(bool disposing) {
             if (_disposed) {
                 return;
@@ -330,10 +365,10 @@ namespace MessageWorkerPool.RabbitMq
                 Process = null;
             }
 
-            if (Channel?.IsClosed != null)
+            if (channel?.IsClosed != null)
             {
-                Channel.Close();
-                Channel = null;
+                channel.Close();
+                channel = null;
             }
 
             _disposed = true;
