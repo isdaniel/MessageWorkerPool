@@ -21,9 +21,7 @@ using (var messageClient = new MessageClient<BalanceModel>(
             ExchangeName = GetEnvironmentVariable("EXCHANGENAME"),
         }, NullLogger.Instance))
 {
-    messageClient.InitialQueue(new string[]{
-        GetEnvironmentVariable("FIBONACCI_QUEUE")
-    });
+    messageClient.InitialQueue();
 
     int totalMessageCount = GetEnvironmentVariableAsUShort("TOTAL_MESSAGE_COUNT", 10000);
     for (int i = 1; i <= totalMessageCount; i++)

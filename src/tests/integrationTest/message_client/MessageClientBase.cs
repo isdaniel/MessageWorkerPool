@@ -27,20 +27,12 @@ public abstract class MessageClientBase : IDisposable
     protected IConnection connection = null;
     protected IModel channel = null;
 
-    public void InitialQueue(string[] queueNames) {
-        if (queueNames == null)
-        {
-            throw new ArgumentNullException(nameof(queueNames));
-        }
-
-        channel.QueueDeclare(_options.QueueName, true, false, false, null);
-        channel.ExchangeDeclare(_options.ExchangeName, ExchangeType.Direct, true, false, null);
-        channel.QueueBind(_options.QueueName, _options.ExchangeName, "*");
-        foreach(var queueName in queueNames){
-            channel.QueueDeclare(queueName, true, false, false, null);
-        }
-    }
-
+	public void InitialQueue() {
+		channel.QueueDeclare(_options.QueueName, true, false, false, null);
+		channel.ExchangeDeclare(_options.ExchangeName, ExchangeType.Direct, true, false, null);
+		channel.QueueBind(_options.QueueName, _options.ExchangeName, "*");
+	}
+	
     protected virtual string PublishMessage(
         string routing,
         byte[] messageBody,
