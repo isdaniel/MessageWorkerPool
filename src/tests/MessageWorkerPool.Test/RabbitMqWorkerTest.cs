@@ -8,8 +8,6 @@ using RabbitMQ.Client;
 using MessageWorkerPool.Utilities;
 using RabbitMQ.Client.Events;
 using System.Text;
-using System.Threading.Channels;
-using System;
 
 namespace MessageWorkerPool.Test
 {
@@ -18,13 +16,16 @@ namespace MessageWorkerPool.Test
         private readonly Mock<ILoggerFactory> _loggerFactoryMock;
         private readonly Mock<ILogger<RabbitMqWorker>> _loggerMock;
         private readonly Mock<IModel> _channel;
+        private readonly Mock<IBasicProperties> _basicProp;
 
         public RabbitMqWorkerTest()
         {
             _loggerFactoryMock = new Mock<ILoggerFactory>();
             _loggerMock = new Mock<ILogger<RabbitMqWorker>>();
             _channel = new Mock<IModel>();
+            _basicProp = new Mock<IBasicProperties>();
             _loggerFactoryMock.Setup(lf => lf.CreateLogger(It.IsAny<string>())).Returns(_loggerMock.Object);
+            _channel.Setup(x => x.CreateBasicProperties()).Returns(_basicProp.Object);
         }
 
         private RabbitMqWorkerTester CreateWorker(RabbitMqSetting setting, WorkerPoolSetting workerSetting)
@@ -32,7 +33,7 @@ namespace MessageWorkerPool.Test
             return new RabbitMqWorkerTester(setting, workerSetting, _channel.Object, _loggerFactoryMock.Object);
         }
 
-        private BasicDeliverEventArgs CreateBasicDeliverEventArgs(string message, string correlationId,string replyQueueName = null)
+        private BasicDeliverEventArgs CreateBasicDeliverEventArgs(string message, string correlationId,ulong deliveryTag = 123, string replyQueueName = null)
         {
             var basicProperties = new Mock<IBasicProperties>();
             basicProperties.Setup(p => p.CorrelationId).Returns(correlationId);
@@ -40,7 +41,7 @@ namespace MessageWorkerPool.Test
 
             return new BasicDeliverEventArgs
             {
-                DeliveryTag = 123,
+                DeliveryTag = deliveryTag,
                 Body = Encoding.UTF8.GetBytes(message),
                 BasicProperties = basicProperties.Object
             };
@@ -177,7 +178,8 @@ namespace MessageWorkerPool.Test
         public async Task AsyncEventHandler_Shutdown_ToReplyQueue(string message, string correlationId, string outputResponse, bool expectAck, bool expectNack,bool expectRequeue, int tokenTimeout, string replyQueueName = null)
         {
             var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
-            var eventArgs = CreateBasicDeliverEventArgs(message, correlationId, replyQueueName);
+            ulong deliveryTag = 123456;
+            var eventArgs = CreateBasicDeliverEventArgs(message, correlationId, deliveryTag, replyQueueName);
             var cts = new CancellationTokenSource(tokenTimeout);
             worker.Status.Should().Be(WorkerStatus.WaitForInit);
             await worker.InitWorkerAsync(cts.Token);
@@ -188,13 +190,14 @@ namespace MessageWorkerPool.Test
             var expectOutputBytes = Encoding.UTF8.GetBytes(expectOutput?.Message);
             await worker.AsyncEventHandler(worker, eventArgs);
 
-            _channel.Verify(c => c.BasicAck(123, false), Times.Exactly(expectAck ? 1 : 0));
-            _channel.Verify(c => c.BasicNack(123, false, true), Times.Exactly(expectNack ? 1 : 0));
+            _channel.Verify(c => c.BasicAck(deliveryTag, false), Times.Exactly(expectAck ? 1 : 0));
+            worker.RejectMessageDeliveryTags.Count.Should().Be(expectNack ? 1 : 0);
+
             _channel.Verify(c => c.BasicPublish(
                 "",
                 replyQueueName,
                 false,
-                null,
+                It.IsAny<IBasicProperties>(),
                 It.Is<ReadOnlyMemory<byte>>(mm=> mm.ToArray().SequenceEqual(expectOutputBytes))), Times.Exactly(expectRequeue ? 1 : 0));
 
             VerifyLogging(message);
@@ -206,7 +209,7 @@ namespace MessageWorkerPool.Test
             await worker.GracefulShutDownAsync(CancellationToken.None);
             worker.mockProcess.Verify(x => x.Close(), Times.Once);
             worker.mockProcess.Verify(x => x.Dispose(), Times.Once);
-            worker.mockProcess.Verify(x => x.WaitForExit(), Times.Once);
+            worker.mockProcess.Verify(x => x.WaitForExit(), Times.Once); 
             worker.Status.Should().Be(WorkerStatus.Stopped);
             worker.channel.Should().BeNull();
             worker.AsyncEventHandler.Should().BeNull();

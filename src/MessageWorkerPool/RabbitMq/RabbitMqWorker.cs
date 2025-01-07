@@ -44,7 +44,7 @@ namespace MessageWorkerPool.RabbitMq
             MessageStatus.MESSAGE_DONE_WITH_REPLY
         };
 
-        private readonly ConcurrentBag<ulong> _rejectMessageDeliveryTags = new ConcurrentBag<ulong>(){ };
+        internal ConcurrentBag<ulong> RejectMessageDeliveryTags { get; private set; } = new ConcurrentBag<ulong>();
 
         protected AutoResetEvent _receivedWaitEvent = new AutoResetEvent(false);
 
@@ -128,7 +128,7 @@ namespace MessageWorkerPool.RabbitMq
                         {
                             Logger.LogWarning($"doing GracefulShutDown reject message!");
                             //it should return, if the worker are processing GracefulShutDown.
-                            _rejectMessageDeliveryTags.Add(e.DeliveryTag);
+                            RejectMessageDeliveryTags.Add(e.DeliveryTag);
                             return;
                         }
                         Interlocked.Increment(ref _messageCount);
@@ -326,8 +326,8 @@ namespace MessageWorkerPool.RabbitMq
         private void RejectRemainingMessages()
         {
             Logger.LogInformation("Rejecting all remaining messages in the queue...");
-            Logger.LogInformation($"messages {_rejectMessageDeliveryTags.Count} are waiting for rejecting from the queue.");
-            foreach (var deliveryTag in _rejectMessageDeliveryTags)
+            Logger.LogInformation($"messages {RejectMessageDeliveryTags.Count} are waiting for rejecting from the queue.");
+            foreach (var deliveryTag in RejectMessageDeliveryTags)
             {
                 RejectMessage(deliveryTag);
             }
