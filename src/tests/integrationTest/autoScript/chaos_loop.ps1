@@ -31,7 +31,7 @@ for ($i = 1; $i -le 25; $i++) {
     Start-Sleep -Seconds 2
 	
     # Run dotnet test
-    dotnet test --configuration Release --logger:"console;verbosity=detailed"
+    dotnet test IntegrationTester.sln --logger:"console;verbosity=detailed"
 }
 
 

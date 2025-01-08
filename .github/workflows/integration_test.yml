@@ -39,7 +39,7 @@ jobs:
         set -a
         source ./.env_testing
         set +a
-        for i in {1..7}
+        for i in {1..10}
         do
           docker start $(docker ps -a --filter "name=publisher" --format "{{.ID}}")
           echo "Waiting for 2 seconds before running .NET testing iteration $i"
