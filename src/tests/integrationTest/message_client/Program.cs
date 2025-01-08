@@ -6,46 +6,42 @@ using System.Threading.Channels;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
-System.Console.WriteLine("Integration Testing Start");
+Console.WriteLine("Prepare integration scheme and queue.");
 InitialTestingTable();
-using (var messageClient = new MessageClient<BalanceModel>(
-        new MessageClientOptions
-        {
-            QueueName = GetEnvironmentVariable("BALANCEWORKER_QUEUE"),
-            UserName = GetEnvironmentVariable("RABBITMQ_USERNAME", "guest"),
-            Password = GetEnvironmentVariable("RABBITMQ_PASSWORD", "guest"),
-            HostName = GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
-            Port = GetEnvironmentVariableAsUShort("RABBITMQ_PORT", 5672),
-            ExchangeName = GetEnvironmentVariable("EXCHANGENAME"),
-        }, NullLogger.Instance))
+
+var userName = GetEnvironmentVariable("RABBITMQ_USERNAME", "guest");
+var password = GetEnvironmentVariable("RABBITMQ_PASSWORD", "guest");
+var hostName = GetEnvironmentVariable("RABBITMQ_HOSTNAME");
+var port = GetEnvironmentVariableAsUShort("RABBITMQ_PORT", 5672);
+var exchangeName = GetEnvironmentVariable("EXCHANGENAME");
+
+var connfac = new ConnectionFactory()
 {
-    messageClient.InitialQueue();
+    Uri = new Uri($"amqp://{userName}:{password}@{hostName}:{port}")
+};
 
-    int totalMessageCount = GetEnvironmentVariableAsUShort("TOTAL_MESSAGE_COUNT", 10000);
-    for (int i = 1; i <= totalMessageCount; i++)
-    {
-        Random rnd = new Random();
-        var model = new BalanceModel()
-        {
-            Balance = rnd.Next(1,10000),
-            UserName = Guid.NewGuid().ToString("N")
-        };
+var queueList = new []{
+    GetEnvironmentVariable("BALANCEWORKER_QUEUE"),
+    GetEnvironmentVariable("FIBONACCI_QUEUE"),
+    GetEnvironmentVariable("LONGRUNNINGBATCHTASK_QUEUE")
+};
 
-        string replyQueueName = string.Empty;
-        if(i == totalMessageCount){
-            replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
-            Console.WriteLine($"ReplyQueueName:{replyQueueName}");
-        }
-
-        messageClient.SendMessage("*", model, $"{Environment.MachineName}_{Guid.NewGuid().ToString("N")}",new Dictionary<string, object>() {
-            { "targetCount",totalMessageCount}
-        },replyQueueName);
-
-        await InsertUserBalanceAsync(model);
+using (var connection = connfac.CreateConnection())
+using (var channel = connection.CreateModel())
+{
+    channel.ExchangeDeclare(exchangeName, ExchangeType.Direct, true, false, null);
+    foreach (var queueName in queueList) {
+        channel.QueueDeclare(queueName, true, false, false, null);
+        channel.QueueBind(queueName, exchangeName, queueName);
     }
+   
 }
+
+Console.WriteLine("Already prepared integration scheme and queue!");
 
 void InitialTestingTable()
 {
@@ -69,22 +65,6 @@ CREATE TABLE dbo.Act(
     }
 }
 
-async Task<int> InsertUserBalanceAsync(BalanceModel model) {
-    if (model == null)
-    {
-        throw new NullReferenceException(nameof(model));
-    }
-
-    using (var conn = new SqlConnection(GetEnvironmentVariable("DBConnection")))
-    {
-        await conn.OpenAsync();
-        return await conn.ExecuteAsync("INSERT INTO dbo.Expect (UserName,Balance) VALUES (@UserName, @Balance)",new {
-            model.UserName,
-            model.Balance
-        });
-    }
-}
-
 string GetEnvironmentVariable(string key, string defaultValue = null)
 {
     var value = Environment.GetEnvironmentVariable(key);
@@ -105,5 +85,3 @@ ushort GetEnvironmentVariableAsUShort(string key, ushort defaultValue)
 
 //create table.
 //create worker add mock data.
-
-Console.ReadLine();

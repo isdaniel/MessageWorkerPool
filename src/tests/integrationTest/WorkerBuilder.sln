@@ -15,6 +15,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TradeWorker", "trade_worker
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TaskWorker", "TaskWorker", "{77452CC0-E4E5-4FBB-9DB4-FDDBEB4DCC75}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LongRunningTaskWorker", "trade_worker\LongRunningTaskWorker\LongRunningTaskWorker.csproj", "{5FAFE765-B106-4E96-9A2D-55C12D5C642E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,6 +43,10 @@ Global
 		{255CCE21-4995-42B6-91C5-9C56A7645354}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{255CCE21-4995-42B6-91C5-9C56A7645354}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{255CCE21-4995-42B6-91C5-9C56A7645354}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5FAFE765-B106-4E96-9A2D-55C12D5C642E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5FAFE765-B106-4E96-9A2D-55C12D5C642E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5FAFE765-B106-4E96-9A2D-55C12D5C642E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5FAFE765-B106-4E96-9A2D-55C12D5C642E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -48,6 +54,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{710417AD-C1FC-49E8-88D6-685529D55C3D} = {77452CC0-E4E5-4FBB-9DB4-FDDBEB4DCC75}
 		{016B49FA-F4BE-4594-B3CD-22B666FCD24F} = {77452CC0-E4E5-4FBB-9DB4-FDDBEB4DCC75}
+		{5FAFE765-B106-4E96-9A2D-55C12D5C642E} = {77452CC0-E4E5-4FBB-9DB4-FDDBEB4DCC75}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C217F53B-C0F0-4E1E-9481-A768AC12C5B1}

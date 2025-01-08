@@ -12,9 +12,10 @@ using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using MessageWorkerPool.Extensions;
 
 /// <summary>
-/// Represents a worker that processes messages from a RabbitMQ queue. 
+/// Represents a worker that processes messages from a RabbitMQ queue.
 /// The worker communicates with an external process through standard input/output and handles message acknowledgment or rejection based on processing outcomes.
 /// </summary>
 namespace MessageWorkerPool.RabbitMq
@@ -55,7 +56,7 @@ namespace MessageWorkerPool.RabbitMq
         protected ILogger<RabbitMqWorker> Logger { get; }
 
         private bool _disposed = false;
-		
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="RabbitMqWorker"/> class.
 		/// </summary>
@@ -83,8 +84,8 @@ namespace MessageWorkerPool.RabbitMq
             this.channel = channel;
         }
 
-        protected virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo) { 
-        
+        protected virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo) {
+
             IProcessWrapper process = new ProcessWrapper(new Process
             {
                 StartInfo = processStartInfo
@@ -121,7 +122,7 @@ namespace MessageWorkerPool.RabbitMq
                 ReceiveEvent = async (sender, e) =>
                 {
                     var correlationId = e.BasicProperties.CorrelationId;
-                    
+
                     using (Logger.BeginScope($"[Pid: {Process.Id}][CorrelationId: {correlationId}]"))
                     {
                         if (_stoppingStatus.Contains(Status) || token.IsCancellationRequested)
@@ -145,7 +146,7 @@ namespace MessageWorkerPool.RabbitMq
 
             await Task.CompletedTask;
         }
-		
+
 		/// <summary>
 		/// Starts the external process and begins reading from its error output stream.
 		/// </summary>
@@ -155,7 +156,7 @@ namespace MessageWorkerPool.RabbitMq
             Process.BeginErrorReadLine();
             Process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
             {
-                if (!string.IsNullOrEmpty(e.Data))
+                if (!string.IsNullOrWhiteSpace(e.Data))
                 {
                     Logger.LogError($"Procees Error Information:{e.Data}");
                 }
@@ -180,7 +181,8 @@ namespace MessageWorkerPool.RabbitMq
                 {
                     Message = message,
                     CorrelationId = correlationId,
-                    Headers = e.BasicProperties.Headers
+                    Headers = e.BasicProperties.Headers,
+                    OriginalQueueName = _workerSetting.QueueName,
                 };
 
                 await Process.StandardInput.WriteLineAsync(task.ToJsonMessage()).ConfigureAwait(false);
@@ -190,8 +192,9 @@ namespace MessageWorkerPool.RabbitMq
                 if (_messageDoneMap.Contains(taskOutput.Status))
                 {
                     AcknowledgeMessage(e.DeliveryTag);
+                    string replyQueue = !string.IsNullOrWhiteSpace(taskOutput.ReplyQueueName) ? taskOutput.ReplyQueueName : e.BasicProperties.ReplyTo;
                     //push to another queue
-                    ReplyQueue(e, taskOutput);
+                    ReplyQueue(replyQueue, e, taskOutput);
                 }
                 else
                 {
@@ -204,27 +207,36 @@ namespace MessageWorkerPool.RabbitMq
                 Logger.LogWarning(ex, "Processing message encountered an exception!");
             }
         }
-		
+
 		/// <summary>
 		/// Sends a reply message to a queue specified in the original message's reply-to property.
 		/// </summary>
 		/// <param name="e">Delivery event arguments containing the message details.</param>
 		/// <param name="taskOutput">Output task from the external process.</param>
-        private void ReplyQueue(BasicDeliverEventArgs e, MessageOutputTask taskOutput)
+        private void ReplyQueue(string replyQueueName,BasicDeliverEventArgs e, MessageOutputTask taskOutput)
         {
-            if (!string.IsNullOrEmpty(e.BasicProperties.ReplyTo) &&
+            if (!string.IsNullOrWhiteSpace(replyQueueName) &&
                 taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY)
             {
-                Logger.LogDebug($"reply queue request reply queue name is {e.BasicProperties.ReplyTo},replyMessage : {taskOutput.Message}");
+                Logger.LogDebug($"reply queue request reply queue name is {replyQueueName},replyMessage : {taskOutput.Message}");
 
-                //TODO!! We could support let user fill queue or exchange name from worker protocol in future.
-                var properties = channel.CreateBasicProperties();
-                properties.ContentEncoding = "utf-8";
+                var properties = e.BasicProperties;
+                properties.ContentEncoding = Encoding.UTF8.WebName;
                 properties.Headers = taskOutput.Headers;
-                channel.BasicPublish(string.Empty, e.BasicProperties.ReplyTo, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
+
+                //TODO! We could support let user fill queue or exchange name from worker protocol in future.
+                channel.BasicPublish(string.Empty, replyQueueName, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
+            }
+            else if (taskOutput.Status != MessageStatus.MESSAGE_DONE_WITH_REPLY && !string.IsNullOrWhiteSpace(replyQueueName))
+            {
+                Logger.LogWarning($"reply queue name was setup as {replyQueueName}, but taskOutput status is {taskOutput.Status}");
+            }
+            else if (taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY && string.IsNullOrWhiteSpace(replyQueueName))
+            {
+                Logger.LogWarning($"reply queue name is null or empty, but taskOutput status is MESSAGE_DONE_WITH_REPLY");
             }
         }
-		
+
 		/// <summary>
 		/// Reads and processes the output from the external process, handling task completion statuses.
 		/// </summary>
@@ -241,7 +253,7 @@ namespace MessageWorkerPool.RabbitMq
                 string responseJson = await Process.StandardOutput.ReadLineAsync().ConfigureAwait(false);
                 Logger.LogDebug($"Message from worker process: {responseJson}");
 
-                if (!string.IsNullOrEmpty(responseJson))
+                if (!string.IsNullOrWhiteSpace(responseJson))
                 {
                     try
                     {
@@ -280,14 +292,14 @@ namespace MessageWorkerPool.RabbitMq
         }
 
         /// <summary>
-        /// provide hock for sub-class implement 
+        /// provide hock for sub-class implement
         /// </summary>
         /// <returns></returns>
         protected virtual async Task GracefulReleaseAsync(CancellationToken token)
         {
             await Task.CompletedTask;
         }
-		
+
 		/// <summary>
 		/// Gracefully shuts down the worker, ensuring all in-flight messages are processed or rejected.
 		/// </summary>
@@ -318,7 +330,7 @@ namespace MessageWorkerPool.RabbitMq
                 Status = WorkerStatus.Stopped;
                 await GracefulReleaseAsync(token);
             }
-            
+
             this.Dispose();
             Logger.LogInformation("RabbitMQ Conn Closed!!!!");
         }
@@ -348,7 +360,7 @@ namespace MessageWorkerPool.RabbitMq
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-		
+
 		/// <summary>
 		/// Disposes managed resources.
 		/// </summary>

@@ -25,12 +25,6 @@ public class MessageClient : IDisposable
     protected IConnection connection = null;
     protected IModel channel = null;
 
-    public void InitialQueue() {
-        channel.QueueDeclare(_options.QueueName, true, false, false, null);
-        channel.ExchangeDeclare(_options.ExchangeName, ExchangeType.Direct, true, false, null);
-        channel.QueueBind(_options.QueueName, _options.ExchangeName, "*");
-    }
-
     public virtual string PublishMessage(
         string routing,
         string messageBody,
@@ -42,14 +36,6 @@ public class MessageClient : IDisposable
         {
             correlationId = Guid.NewGuid().ToString("N");
         }
-        
-        channel.QueueDeclare(
-            queue: this._options.QueueName,
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
-            arguments: null);
-
 
         IBasicProperties props = null;
         {

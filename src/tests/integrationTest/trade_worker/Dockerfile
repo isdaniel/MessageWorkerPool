@@ -5,6 +5,7 @@ RUN dotnet build ./WorkerBuilder.sln --configuration Release
 RUN mkdir -p /app && \
     cp ./trade_worker/WorkerCode/* /app -R && \
     cp ./trade_worker/FibonacciWorkerApp/ /app/FibonacciWorkerApp -R && \
+	cp ./trade_worker/LongRunningTaskWorkerApp/ /app/LongRunningTaskWorkerApp -R && \
     cp ./trade_worker/BalanceWorkerApp/ /app/BalanceWorkerApp -R
 
 # WorkerPool runtime
@@ -17,4 +18,4 @@ RUN apt-get update && \
 
 WORKDIR /app
 COPY --from=build /app .
-CMD ["sh", "-c", "sleep 3 && exec dotnet TradeWorker.dll"]
+CMD ["sh", "-c", "sleep 5 && exec dotnet TradeWorker.dll"]
