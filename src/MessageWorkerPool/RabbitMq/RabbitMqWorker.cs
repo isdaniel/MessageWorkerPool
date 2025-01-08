@@ -220,7 +220,7 @@ namespace MessageWorkerPool.RabbitMq
                 //TODO!! We could support let user fill queue or exchange name from worker protocol in future.
                 var properties = channel.CreateBasicProperties();
                 properties.ContentEncoding = "utf-8";
-                properties.ContentType = "application/json"; 
+                properties.Headers = taskOutput.Headers;
                 channel.BasicPublish(string.Empty, e.BasicProperties.ReplyTo, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
             }
         }
