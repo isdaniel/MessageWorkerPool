@@ -5,7 +5,8 @@ on:
     branches: [ "*" ]
   pull_request:
     branches: [ "*" ]
-
+  schedule:
+    - cron: '0 */12 * * *'
 jobs:
   Integration-Test:
     runs-on: ubuntu-latest
@@ -45,7 +46,7 @@ jobs:
           echo "Waiting for 2 seconds before running .NET testing iteration $i"
           sleep 2
           echo "Running .NET testing iteration $i"
-          dotnet test --configuration Release --logger:"console;verbosity=detailed"
+          dotnet test IntegrationTester.sln --configuration Release --logger:"console;verbosity=detailed"
         done
       working-directory: ./src/tests/integrationTest
 

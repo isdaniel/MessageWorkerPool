@@ -21,7 +21,6 @@ services:
       - net-mq
   publisher:
     build: ./message_client
-    #image: dog830228/mq_poc-publisher
     environment:
       - BALANCEWORKER_QUEUE=${BALANCEWORKER_QUEUE}
       - RABBITMQ_HOSTNAME=${RABBITMQ_HOSTNAME}
@@ -36,8 +35,10 @@ services:
         condition: service_healthy
     networks:
       - net-mq
-  tradeworker:
-    build: ./trade_worker
+  tradeworker: 
+    build:
+      context: ../../
+      dockerfile: ./tests/integrationTest/trade_worker/Dockerfile
     stop_grace_period: 30s
     environment:
       - BALANCEWORKER_QUEUE=${BALANCEWORKER_QUEUE}
