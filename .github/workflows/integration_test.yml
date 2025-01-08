@@ -9,7 +9,7 @@ on:
     - cron: '0 */12 * * *'
 jobs:
   Integration-Test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -36,15 +36,13 @@ jobs:
         dotnet-version: '6.0.x'
     - name: Load environment variables from .env file & Doing integration test
       run: |
-        cp ./env/.env ./.env_testing
-        sed -i 's/^RABBITMQ_HOSTNAME=.*/RABBITMQ_HOSTNAME=127.0.0.1/' ./.env_testing
-        sed -i 's/Data Source=sqlserver/Data Source=127.0.0.1/' ./.env_testing
         set -a
-        source ./.env_testing
+        source ./env/.env
+        source ./env/.local_env
         set +a
         for i in {1..10}
         do
-          docker start $(docker ps -a --filter "name=publisher" --format "{{.ID}}")
+          docker start $(docker ps -a --filter "name=envpreparatory" --format "{{.ID}}")
           echo "Waiting for 2 seconds before running .NET testing iteration $i"
           sleep 2
           echo "Running .NET testing iteration $i"

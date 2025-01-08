@@ -9,9 +9,10 @@ namespace MessageWorkerPool.Utilities
     /// </summary>
     public class MessageInputTask
     {
-        public IDictionary<string,object> Headers { get; set; }
+        public IDictionary<string, object> Headers { get; set; }
         public string Message { get;  set; }
         public string CorrelationId { get;  set; }
+        public string OriginalQueueName { get;  set; }
 
         internal string ToJsonMessage()
         {
