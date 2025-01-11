@@ -139,7 +139,7 @@ the concept like OS processing thread occurs a context switch (interrupt ..etc),
 
 //TODO provide an example.
 
-For example the `MessageOutputTask` JSON could look like below, `status=201` represent this message will re-queue for next time processing, the message will bring the `Headers` information when requeue again.
+For example the `MessageOutputTask` JSON could look like below, `status=201` represents that this message will be re-queued for processing next time, the message will bring the `Headers` information when requeue again.
 
 ```
 {
