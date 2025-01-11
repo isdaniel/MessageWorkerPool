@@ -40,7 +40,7 @@ public class Program
                 Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
-                PrefetchTaskCount = 1
+                PrefetchTaskCount = 3
             }, new WorkerPoolSetting[]
             {
                 new WorkerPoolSetting() {

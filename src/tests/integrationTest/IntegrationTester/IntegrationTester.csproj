@@ -26,4 +26,16 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EditorConfigFiles Remove="C:\gitRepo\MessageWorkerPool\src\tests\integrationTest\IntegrationTester\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="C:\gitRepo\MessageWorkerPool\src\tests\integrationTest\IntegrationTester\.editorconfig" />
+  </ItemGroup>
+
 </Project>
