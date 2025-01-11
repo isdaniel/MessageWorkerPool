@@ -260,7 +260,7 @@ public class GracefulShutdownTest
 
     public class CountorModel
     {
-        public int StartVallue { get; set; }
+        public int StartValue { get; set; }
         public int CurrentSum { get; set; }
         public int BatchExecutedCount { get; set; }
         public int TotalCount { get; set; }
