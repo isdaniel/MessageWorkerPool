@@ -79,7 +79,7 @@ public class GracefulShutdownTest
         {
             BatchExecutedCount = batch,
             CurrentSum = 0,
-            StartVallue = 0,
+            StartValue = 0,
             TotalCount = total
         }), correlationId, queueName, replyQueue);
 
