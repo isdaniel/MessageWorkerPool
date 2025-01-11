@@ -39,12 +39,12 @@ function Toggle-ContainerState {
     if ($Status -match "Up") {
         Write-Host "Container is running. Stopping container..."
         docker stop $ContainerId
-		Sleeping-InRange -Minimum 20 -Maximum 30
+		Sleeping-InRange -Minimum 15 -Maximum 30
     }
     elseif ($Status -match "Exited") {
         Write-Host "Container is stopped. Starting container..."
         docker start $ContainerId
-		Sleeping-InRange -Minimum 120 -Maximum 160
+		Sleeping-InRange -Minimum 25 -Maximum 50
     }
     else {
         Write-Host "Unknown container state: $Status"
