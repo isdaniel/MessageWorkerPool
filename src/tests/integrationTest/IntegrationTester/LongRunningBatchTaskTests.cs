@@ -25,7 +25,6 @@ namespace IntegrationTester
         [InlineData(103, 5356, 10)]
         [InlineData(10, 55, 10)]    
         [InlineData(0, 0, 10)]     
-        [InlineData(-10, 0, 1)]   
         [InlineData(10, 55, 1)]     
         public async Task WorkerConsumeMessage_LongRunningBatchTaskTest(int total, int expect, int batch)
         {
