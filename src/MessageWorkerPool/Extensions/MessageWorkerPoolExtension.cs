@@ -6,6 +6,7 @@ using System.Linq;
 
 namespace MessageWorkerPool.Extensions
 {
+
     public static class MessageWorkerPoolExtension
     {
         public static IHostBuilder AddRabbitMqWorkerPool(this IHostBuilder hostBuilder, RabbitMqSetting rabbitMqSetting, WorkerPoolSetting[] workerSettings)

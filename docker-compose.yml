@@ -2,7 +2,7 @@ version: '3.8'
 services:
   myrabbitmq:
     image: rabbitmq:3-management
-    hostname: ${RABBITMQ_HOSTNAME}
+    hostname: rabbitmq-server
     restart: always
     ports:
       - "8888:15672"
@@ -22,10 +22,7 @@ services:
   publisher:
     # build: ./Publisher/
     image: dog830228/mq_poc-publisher
-    environment:
-      - QUEUENAME=${QUEUENAME}
-      - RABBITMQ_HOSTNAME=${RABBITMQ_HOSTNAME}
-      - RABBITMQ_PORT=${RABBITMQ_PORT}
+    env_file: ./env/.env
     depends_on:
       myrabbitmq:
         condition: service_healthy
@@ -38,11 +35,7 @@ services:
     stop_grace_period: 200s
     # stop_signal: SIGINT
     #image: dog830228/mq_poc-nodeworker
-    environment:
-      - QUEUENAME=${QUEUENAME}
-      - RABBITMQ_HOSTNAME=${RABBITMQ_HOSTNAME}
-      - RABBITMQ_PORT=${RABBITMQ_PORT}
-      - DBConnection=Data Source=sqlserver;Initial Catalog=orleans;User ID=sa;Password=test.123;
+    env_file: ./env/.env
     depends_on:
       - publisher
     networks:

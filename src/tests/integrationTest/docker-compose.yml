@@ -2,7 +2,7 @@ version: '3.8'
 services:
   myrabbitmq:
     image: rabbitmq:3-management
-    hostname: ${RABBITMQ_HOSTNAME}
+    hostname: rabbitmq-server
     restart: always
     ports:
       - "8888:15672"
@@ -19,36 +19,22 @@ services:
       - 15672
     networks:
       - net-mq
-  publisher:
+  envpreparatory:
     build: ./message_client
-    environment:
-      - BALANCEWORKER_QUEUE=${BALANCEWORKER_QUEUE}
-      - RABBITMQ_HOSTNAME=${RABBITMQ_HOSTNAME}
-      - RABBITMQ_PORT=${RABBITMQ_PORT}
-      - EXCHANGENAME=${EXCHANGENAME}
-      - DBConnection=${DBConnection}
-      - TOTAL_MESSAGE_COUNT=${TOTAL_MESSAGE_COUNT}
-      - REPLY_QUEUE=${REPLY_QUEUE}
-      - FIBONACCI_QUEUE=${FIBONACCI_QUEUE}
+    env_file: ./env/.env
     depends_on:
       myrabbitmq:
         condition: service_healthy
     networks:
       - net-mq
-  tradeworker: 
+  tradeworker:
     build:
       context: ../../
       dockerfile: ./tests/integrationTest/trade_worker/Dockerfile
     stop_grace_period: 30s
-    environment:
-      - BALANCEWORKER_QUEUE=${BALANCEWORKER_QUEUE}
-      - RABBITMQ_HOSTNAME=${RABBITMQ_HOSTNAME}
-      - RABBITMQ_PORT=${RABBITMQ_PORT}
-      - DBConnection=${DBConnection}
-      - REPLY_QUEUE=${REPLY_QUEUE}
-      - FIBONACCI_QUEUE=${FIBONACCI_QUEUE}
+    env_file: ./env/.env
     depends_on:
-      - publisher
+      - envpreparatory
     networks:
       - net-mq
   sqlserver:

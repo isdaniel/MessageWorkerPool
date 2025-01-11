@@ -40,7 +40,7 @@ public class Program
                 Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
-                PrefetchTaskCount = 3
+                PrefetchTaskCount = 1
             }, new WorkerPoolSetting[]
             {
                 new WorkerPoolSetting() {
@@ -54,6 +54,12 @@ public class Program
                     CommandLine = "dotnet",
                     Arguments = @"./FibonacciWorkerApp/RPC_FibonacciWorker.dll",
                     QueueName = Environment.GetEnvironmentVariable("FIBONACCI_QUEUE")
+                },
+                new WorkerPoolSetting() {
+                    WorkerUnitCount = 3,
+                    CommandLine = "dotnet",
+                    Arguments = @"./LongRunningTaskWorkerApp/LongRunningTaskWorker.dll",
+                    QueueName = Environment.GetEnvironmentVariable("LONGRUNNINGBATCHTASK_QUEUE")
                 },
             });
 

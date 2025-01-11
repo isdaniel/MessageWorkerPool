@@ -18,14 +18,42 @@ public class GracefulShutdownTest
     {
         // Arrange
         var totalMessageCount = GetEnvironmentVariableAsInt("TOTAL_MESSAGE_COUNT", DefaultMessageCount);
-        var rabbitMqSetting = new RabbitMqSetting
-        {
-            UserName = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? "guest",
-            Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
-            HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME") ?? "127.0.0.1",
-            Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort port) ? port : (ushort)5672,
-        };
+        var queueName = Environment.GetEnvironmentVariable("BALANCEWORKER_QUEUE") ?? "integration-queue";
         var replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
+
+        var prepareTask = Task.Factory.StartNew(async () =>
+        {
+            using (MessageClient messageClient = new MessageClient(new MessageClientOptions()
+            {
+                UserName = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? "guest",
+                Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
+                HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME") ?? "127.0.0.1",
+                Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort port) ? port : (ushort)5672,
+                ExchangeName = Environment.GetEnvironmentVariable("EXCHANGENAME") ?? "integration-exchange"
+            }))
+            {
+                for (int i = 1; i <= totalMessageCount; i++)
+                {
+                    Random rnd = new Random();
+                    var model = new BalanceModel()
+                    {
+                        Balance = rnd.Next(1, 10000),
+                        UserName = Guid.NewGuid().ToString("N")
+                    };
+                    //channel.QueueBind(_options.QueueName, _options.ExchangeName, _options.QueueName);
+                    messageClient.PublishMessage(queueName,
+                            JsonSerializer.Serialize(model),
+                            $"{Environment.MachineName}_{Guid.NewGuid().ToString("N")}",
+                            new Dictionary<string, object>() {
+                    { "targetCount",totalMessageCount}
+                    }, i == totalMessageCount ? replyQueueName : string.Empty);
+
+                    await InsertUserBalanceAsync(model);
+                }
+            }
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+        await prepareTask;
         (ResponseMessage act, IModel channel, IConnection connection) = await WaitForMessageResult(replyQueueName, (message) => JsonSerializer.Deserialize<ResponseMessage>(message));
 
         var expectedList = (await GetAllBalanceFrom("dbo.Expect")).ToList();
@@ -35,6 +63,34 @@ public class GracefulShutdownTest
         expectedList.Count.Should().Be(totalMessageCount);
         ValidateBalanceComparison(actualList, expectedList);
         act.Status.Should().Be("OK!");
+    }
+
+    //50005000
+    [Theory]
+    [InlineData(10000, 50005000, 100)]
+    [InlineData(1000, 500500, 50)]
+    [InlineData(1000, 500500, 23)]
+    public async Task WorkerConsumeMessage_LongRunningBatchTaskTest(int total, int expect, int batch)
+    {
+        string correlationId = Guid.NewGuid().ToString("N");
+        string queueName = Environment.GetEnvironmentVariable("LONGRUNNINGBATCHTASK_QUEUE") ?? "LongRunningBatchTaskQ";
+        string replyQueue = Environment.GetEnvironmentVariable("LONGRUNNINGBATCHTASK_REPLYQUEUE");
+        SendingMessage(JsonSerializer.Serialize(new CountorModel()
+        {
+            BatchExecutedCount = batch,
+            CurrentSum = 0,
+            StartValue = 0,
+            TotalCount = total
+        }), correlationId, queueName, replyQueue);
+
+
+        (int act, IModel channel, IConnection connection) = await WaitForMessageResult(replyQueue, (message) => int.Parse(message));
+
+        //assert
+        act.Should().Be(expect);
+
+        channel.Close();
+        connection.Close();
     }
 
     [Theory]
@@ -85,10 +141,13 @@ public class GracefulShutdownTest
         string queueName = Environment.GetEnvironmentVariable("FIBONACCI_QUEUE") ?? "integrationTesting_fibonacciQ";
         string replyQueue = $"{queueName}_{correlationId}";
 
-        SendingMessage(input, correlationId, queueName, replyQueue);
+        SendingMessage(JsonSerializer.Serialize(new FibonacciModel()
+        {
+            Value = input
+        }), correlationId, queueName, replyQueue);
 
 
-        (int act,IModel channel,IConnection connection) = await WaitForMessageResult(replyQueue,(message) => int.Parse(message));
+        (int act, IModel channel, IConnection connection) = await WaitForMessageResult(replyQueue, (message) => int.Parse(message));
 
         //assert
         Action beforeDelFunc = () => channel.QueueDeclarePassive(replyQueue);
@@ -100,7 +159,7 @@ public class GracefulShutdownTest
         connection.Close();
     }
 
-    private async Task<(TResult, IModel, IConnection)> WaitForMessageResult<TResult>(string replyQueue,Func<string,TResult> action)
+    private async Task<(TResult, IModel, IConnection)> WaitForMessageResult<TResult>(string replyQueue, Func<string, TResult> action)
     {
         IConnection connection;
         IModel channel;
@@ -141,7 +200,7 @@ public class GracefulShutdownTest
         return (res, channel, connection);
     }
 
-    private void SendingMessage(int input, string correlationId, string queueName, string replyQueue)
+    private void SendingMessage(string bodyMessage, string correlationId, string queueName, string replyQueue)
     {
         using (MessageClient messageClient = new MessageClient(new MessageClientOptions()
         {
@@ -149,17 +208,11 @@ public class GracefulShutdownTest
             Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
             HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME") ?? "127.0.0.1",
             Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort port) ? port : (ushort)5672,
-            QueueName = queueName,
-            ExchangeName = Environment.GetEnvironmentVariable("FIBONACCI_EXCHANGE") ?? "integrationTesting_fibonacci_Exchange"
+            ExchangeName = Environment.GetEnvironmentVariable("EXCHANGENAME") ?? "integration-exchange"
         }))
         {
-            messageClient.InitialQueue();
-            messageClient.PublishMessage("*", JsonSerializer.Serialize(new FibonacciModel()
-            {
-                Value = input
-            }), correlationId, null, replyQueue);
+            messageClient.PublishMessage(queueName, bodyMessage, correlationId, null, replyQueue);
         }
-
     }
 
     private static void ValidateBalanceComparison(List<BalanceModel> actList, List<BalanceModel> expectList)
@@ -181,10 +234,37 @@ public class GracefulShutdownTest
         return int.TryParse(value, out int parsedValue) ? parsedValue : defaultValue;
     }
 
+    async Task<int> InsertUserBalanceAsync(BalanceModel model)
+    {
+        if (model == null)
+        {
+            throw new NullReferenceException(nameof(model));
+        }
+
+        using (var conn = new SqlConnection(Environment.GetEnvironmentVariable("DBConnection")))
+        {
+            await conn.OpenAsync();
+            return await conn.ExecuteAsync("INSERT INTO dbo.Expect (UserName,Balance) VALUES (@UserName, @Balance)", new
+            {
+                model.UserName,
+                model.Balance
+            });
+        }
+    }
+
     public class BalanceModel
     {
         public string UserName { get; set; }
         public int Balance { get; set; }
     }
+
+    public class CountorModel
+    {
+        public int StartValue { get; set; }
+        public int CurrentSum { get; set; }
+        public int BatchExecutedCount { get; set; }
+        public int TotalCount { get; set; }
+    }
+
 }
 

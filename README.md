@@ -133,6 +133,28 @@ Currently, there are some status represnt status
 
 We can write our own worker by different program language (I have provided python and .net sample in this repository).
 
+### How do we handle long-running task or the task involves processing a lot of data rows?
+
+the concept like OS processing thread occurs a context switch (interrupt ..etc),
+
+//TODO provide an example.
+
+For example the `MessageOutputTask` JSON could look like below, `status=201` represents that this message will be re-queued for processing next time, the message will bring the `Headers` information when requeue again.
+
+```
+{
+  "Message": "This is Mock Json Data",
+  "Status": 201,
+  "Headers": {
+    "CreateTimestamp": "2025-01-01T14:35:00Z",
+    "PreviousProcessingTimestamp": "2025-01-01T14:40:00Z",
+	"Source": "OrderProcessingService",
+    "PreviousExecutedRows": 123,
+    "RequeueTimes": 3
+  }
+}
+```
+
 ## Contributing Guidelines
 
 1. **Fork the Repository**: Start by forking the project repository to your github account.
@@ -161,7 +183,7 @@ We can write our own worker by different program language (I have provided pytho
 <summary>Contributor Graph</summary>
 <br>
 <p align="left">
-   <a href="https://github.com{/isdaniel/MessageWorkerPool/}graphs/contributors">
+   <a href="https://github.com/isdaniel/MessageWorkerPool/graphs/contributors">
       <img src="https://contrib.rocks/image?repo=isdaniel/MessageWorkerPool">
    </a>
 </p>
