@@ -135,7 +135,7 @@ We can write our own worker by different program language (I have provided pytho
 
 ### How do we handle long-running task or the task involves processing a lot of data rows?
 
-We could record significant information in `MessageOutputTask` and received from `MessageInputTask` next time, the concept like OS processing thread occur context switch (interrupt ..etc), kernel would like to do snapshot of all cpu register and current stack..etc information, it will resume when this case was performed next time.
+the concept like OS processing thread occurs a context switch (interrupt ..etc),
 
 //TODO provide an example.
 
