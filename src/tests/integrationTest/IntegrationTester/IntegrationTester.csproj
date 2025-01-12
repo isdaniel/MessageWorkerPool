@@ -26,4 +26,12 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <EditorConfigFiles Remove="C:\gitRepo\MessageWorkerPool\src\tests\integrationTest\IntegrationTester\.editorconfig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="C:\gitRepo\MessageWorkerPool\src\tests\integrationTest\IntegrationTester\.editorconfig" />
+  </ItemGroup>
+
 </Project>
