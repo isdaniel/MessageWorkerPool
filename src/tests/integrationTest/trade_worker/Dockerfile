@@ -3,10 +3,7 @@ COPY ./ /sourceCode
 WORKDIR /sourceCode/tests/integrationTest
 RUN dotnet build ./WorkerBuilder.sln --configuration Release
 RUN mkdir -p /app && \
-    cp ./trade_worker/WorkerCode/* /app -R && \
-    cp ./trade_worker/FibonacciWorkerApp/ /app/FibonacciWorkerApp -R && \
-	cp ./trade_worker/LongRunningTaskWorkerApp/ /app/LongRunningTaskWorkerApp -R && \
-    cp ./trade_worker/BalanceWorkerApp/ /app/BalanceWorkerApp -R
+    cp ./trade_worker/WorkerProcess/* /app -R
 
 # WorkerPool runtime
 FROM mcr.microsoft.com/dotnet/aspnet:6.0 as server

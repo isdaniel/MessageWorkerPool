@@ -1,4 +1,4 @@
 BalanceWorkerApp/*
 FibonacciWorkerApp/*
 LongRunningTaskWorkerApp/*
-WorkerCode/*
+WorkerProcess/*
