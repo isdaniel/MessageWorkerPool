@@ -227,13 +227,10 @@ namespace MessageWorkerPool.RabbitMq
                 //TODO! We could support let user fill queue or exchange name from worker protocol in future.
                 channel.BasicPublish(string.Empty, replyQueueName, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
             }
-            else if (taskOutput.Status != MessageStatus.MESSAGE_DONE_WITH_REPLY && !string.IsNullOrWhiteSpace(replyQueueName))
+            else
             {
+                replyQueueName = string.IsNullOrWhiteSpace(replyQueueName) ? "Empty" : replyQueueName;
                 Logger.LogWarning($"reply queue name was setup as {replyQueueName}, but taskOutput status is {taskOutput.Status}");
-            }
-            else if (taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY && string.IsNullOrWhiteSpace(replyQueueName))
-            {
-                Logger.LogWarning($"reply queue name is null or empty, but taskOutput status is MESSAGE_DONE_WITH_REPLY");
             }
         }
 
