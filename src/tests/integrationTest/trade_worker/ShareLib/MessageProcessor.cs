@@ -41,11 +41,12 @@ namespace ShareLib
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"Worker occur unexpected error: {ex.ToString()}");
-                    //we could requeue to another queue (error queue..ect), when we support rpc.
-                    // Console.WriteLine(new MessageOutputTask() {
-                    //     Message = ex.Message,
-                    //     Status = MessageStatus.MESSAGE_DONE
-                    // }.ToJson());
+ 
+                    Console.WriteLine(new MessageOutputTask()
+                    {
+                        Message = ex.Message,
+                        Status = MessageStatus.MESSAGE_DONE
+                    }.ToJson());
                 }
             }
         }
