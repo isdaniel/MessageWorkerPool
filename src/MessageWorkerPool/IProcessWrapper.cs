@@ -9,6 +9,7 @@ namespace MessageWorkerPool
         bool Start();
         void BeginErrorReadLine();
         void WaitForExit();
+        bool WaitForExit(int milliseconds);
         void Close();
         event DataReceivedEventHandler ErrorDataReceived;
         StreamWriter StandardInput { get; }

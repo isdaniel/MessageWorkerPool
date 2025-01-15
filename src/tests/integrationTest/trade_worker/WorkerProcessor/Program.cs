@@ -24,6 +24,7 @@ namespace WorkerProcessSample
         static async Task Main(string[] args)
         {
             MessageProcessor processor = new MessageProcessor();
+            await processor.InitialAsync();
             await processor.DoWorkAsync(async (task) =>
             {
                 var model = JsonSerializer.Deserialize<BalanceModel>(task.Message);

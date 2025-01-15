@@ -36,9 +36,9 @@ public class Program
                 });
             }).AddRabbitMqWorkerPool(new RabbitMqSetting
             {
-                UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
-                Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
-                HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
+                UserName = "guest",
+                Password = "guest",
+                HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME") ?? "localhost",
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
                 PrefetchTaskCount = 3
             }, new WorkerPoolSetting[]
@@ -50,10 +50,11 @@ public class Program
                     QueueName = Environment.GetEnvironmentVariable("BALANCEWORKER_QUEUE")
                 },
                 new WorkerPoolSetting() {
-                    WorkerUnitCount = 5,
+                    WorkerUnitCount = 3,
                     CommandLine = "dotnet",
-                    Arguments = @"./FibonacciWorkerApp/RPC_FibonacciWorker.dll",
-                    QueueName = Environment.GetEnvironmentVariable("FIBONACCI_QUEUE")
+                    //Arguments = @"C:\gitRepo\MessageWorkerPool\src\tests\integrationTest\trade_worker\WorkerProcess\FibonacciWorkerApp\RPC_FibonacciWorker.dll",
+                    Arguments = @"./FibonacciWorkerApp/RPC_FibonacciWorker.dll" ,
+                    QueueName = Environment.GetEnvironmentVariable("FIBONACCI_QUEUE") ?? "integrationTesting_fibonacciQ"
                 },
                 new WorkerPoolSetting() {
                     WorkerUnitCount = 3,

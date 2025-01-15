@@ -5,6 +5,7 @@ using ShareLib;
 const string PREVIOUSCONTEXT = "PREVIOUSCONTEXT";
 
 MessageProcessor processor = new MessageProcessor();
+await processor.InitialAsync();
 await processor.DoWorkAsync(async (task) =>
 {
     //write log with task.Headers[PREVIOUSCONTEXT]

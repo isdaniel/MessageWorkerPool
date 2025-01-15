@@ -3,6 +3,7 @@ using MessageWorkerPool.Utilities;
 using ShareLib;
 
 MessageProcessor processor = new MessageProcessor();
+await processor.InitialAsync();
 FibonacciService fibonacci = new FibonacciService();
 await processor.DoWorkAsync(async (task) =>
 {
