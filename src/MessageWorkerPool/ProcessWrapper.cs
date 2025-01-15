@@ -25,6 +25,7 @@ namespace MessageWorkerPool
         public bool Start() => _process.Start();
 
         public void WaitForExit() => _process.WaitForExit();
+        public bool WaitForExit(int milliseconds) => _process.WaitForExit(milliseconds);
         public int Id => _process.Id;
 
         public void BeginErrorReadLine()

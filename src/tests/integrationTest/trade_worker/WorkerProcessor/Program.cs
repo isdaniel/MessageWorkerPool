@@ -24,7 +24,8 @@ namespace WorkerProcessSample
         static async Task Main(string[] args)
         {
             MessageProcessor processor = new MessageProcessor();
-            await processor.DoWorkAsync(async (task) =>
+            await processor.InitialAsync();
+            await processor.DoWorkAsync(async (task, cancelToken) =>
             {
                 var model = JsonSerializer.Deserialize<BalanceModel>(task.Message);
                 var currentCount = await AddUserBalanceAndGetCountAsync(model);

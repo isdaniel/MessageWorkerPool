@@ -17,28 +17,35 @@ namespace IntegrationTester
         [InlineData(10, 55, 101)]
         [InlineData(1, 1, 1)]
         [InlineData(3, 6, 1)]
-        [InlineData(100, 5050, 10)] 
+        [InlineData(100, 5050, 10)]
         [InlineData(103, 5356, 10)]
-        [InlineData(10, 55, 10)]    
-        [InlineData(0, 0, 10)]     
-        [InlineData(10, 55, 1)]     
+        [InlineData(10, 55, 10)]
+        [InlineData(0, 0, 10)]
+        [InlineData(10, 55, 1)]
         public async Task WorkerConsumeMessage_LongRunningBatchTaskTest(int total, int expect, int batch)
         {
             string correlationId = Guid.NewGuid().ToString("N");
             string queueName = Environment.GetEnvironmentVariable("LONGRUNNINGBATCHTASK_QUEUE") ?? "LongRunningBatchTaskQ";
-            string replyQueue = Environment.GetEnvironmentVariable("LONGRUNNINGBATCHTASK_REPLYQUEUE");
+            string replyQueue = $"{Environment.GetEnvironmentVariable("LONGRUNNINGBATCHTASK_REPLYQUEUE")}_{correlationId}";
             TestHelpers.SendingMessage(JsonSerializer.Serialize(new CountorModel()
             {
                 BatchExecutedCount = batch,
                 CurrentSum = 0,
                 StartValue = 0,
                 TotalCount = total
-            }), correlationId, queueName, replyQueue);
+            }), correlationId, queueName, replyQueue, new Dictionary<string, object>() {
+                { "TimeoutMilliseconds", 100}  
+            });
 
 
             (int act, IModel channel, IConnection connection) = await TestHelpers.WaitForMessageResult(replyQueue, (message) => int.Parse(message));
 
             //assert
+            act.Should().Be(expect);
+
+            Action beforeDelFunc = () => channel.QueueDeclarePassive(replyQueue);
+            beforeDelFunc.Should().NotThrow();
+            channel.QueueDelete(replyQueue).Should().Be(0);
             act.Should().Be(expect);
 
             channel.Close();

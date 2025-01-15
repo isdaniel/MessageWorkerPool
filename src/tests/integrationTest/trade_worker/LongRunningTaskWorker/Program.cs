@@ -2,30 +2,32 @@ using System.Text.Json;
 using MessageWorkerPool.Utilities;
 using ShareLib;
 
-const string PREVIOUSCONTEXT = "PREVIOUSCONTEXT";
-
 MessageProcessor processor = new MessageProcessor();
-await processor.DoWorkAsync(async (task) =>
+await processor.InitialAsync();
+await processor.DoWorkAsync(async (task,cancelToken) =>
 {
-    //write log with task.Headers[PREVIOUSCONTEXT]
-
-    //if (!task.Headers.TryGetValue(PREVIOUSCONTEXT, out var taskJson))
-    //{
-    //    taskJson = task.Message;
-    //}
-
-    //Console.WriteLine($"model Json:{taskJson}".ToIgnoreMessage());
 
     var model = JsonSerializer.Deserialize<CountorModel>(task.Message);
 
     //do logical
     int i = model.StartVallue;
     int batchEnd = Math.Min(model.StartVallue + model.BatchExecutedCount, model.TotalCount);
-    for (; i <= batchEnd; i++) {
 
+  
+    for (; i <= batchEnd && !cancelToken.IsCancellationRequested; i++) {
+        //mock interrupt signal.
+        try
+        {
+            await Task.Delay(3, cancelToken);
+        }
+        catch (TaskCanceledException)
+        {
+            Console.WriteLine("Task was canceled.");
+        }
+        
         model.CurrentSum += i;
     }
-
+    
     if (i - 1 == model.TotalCount)
     {
         return new MessageOutputTask()
@@ -35,10 +37,7 @@ await processor.DoWorkAsync(async (task) =>
         };
     }
 
-    await Task.Delay(200);
-
     model.StartVallue = i;
-    //task.Headers[PREVIOUSCONTEXT] = JsonSerializer.Serialize(model);
 
     //Didn't finish task, then store status for next executing.
     return new MessageOutputTask()
