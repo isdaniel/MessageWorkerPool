@@ -3,8 +3,9 @@ using MessageWorkerPool.Utilities;
 using ShareLib;
 
 MessageProcessor processor = new MessageProcessor();
+await processor.InitialAsync();
 FibonacciService fibonacci = new FibonacciService();
-await processor.DoWorkAsync(async (task) =>
+await processor.DoWorkAsync(async (task, cancelToken) =>
 {
     var model = JsonSerializer.Deserialize<FibonacciModel>(task.Message);
     return new MessageOutputTask()

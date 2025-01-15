@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 public class RabbitMqSetting
@@ -16,15 +16,15 @@ public class RabbitMqSetting
     /// Rabbit Mq Port
     /// </summary>
     public ushort Port { get; set; }
-    public string UserName { get; set; }
+    public string? UserName { get; set; }
     /// <summary>
     /// Password to use when authenticating to the server.
     /// </summary>
-    public string Password { get; set; }
+    public string? Password { get; set; }
 
     /// <summary>
     /// The host to connect to
     /// </summary>
-    public string HostName { get; set; }
+    public string? HostName { get; set; }
 }
 

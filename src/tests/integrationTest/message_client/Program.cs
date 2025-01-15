@@ -4,9 +4,9 @@
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Dapper;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Npgsql;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -38,27 +38,21 @@ using (var channel = connection.CreateModel())
         channel.QueueDeclare(queueName, true, false, false, null);
         channel.QueueBind(queueName, exchangeName, queueName);
     }
-   
+
 }
 
 Console.WriteLine("Already prepared integration scheme and queue!");
 
 void InitialTestingTable()
 {
-    string sql = @"DROP TABLE IF EXISTS dbo.Expect;
+    string sql = @"
+DROP TABLE IF EXISTS public.act;
 
-CREATE TABLE dbo.Expect(
-	UserName VARCHAR(32) primary key,
-	Balance INT NOT NULL DEFAULT 0
-);
-
-DROP TABLE IF EXISTS dbo.Act;
-
-CREATE TABLE dbo.Act(
-	UserName VARCHAR(32) primary key,
-	Balance INT NOT NULL DEFAULT 0
+CREATE TABLE public.act (
+    username VARCHAR(32) PRIMARY KEY,
+    balance INT NOT NULL DEFAULT 0
 );";
-    using (var conn = new SqlConnection(GetEnvironmentVariable("DBConnection")))
+    using (var conn = new NpgsqlConnection(GetEnvironmentVariable("DBConnection")))
     {
         conn.Open();
         conn.Execute(sql);

@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text;
@@ -49,7 +49,7 @@ public static class TestHelpers
         return (res, channel, connection);
     }
 
-    public static void SendingMessage(string bodyMessage, string correlationId, string queueName, string replyQueue)
+    public static void SendingMessage(string bodyMessage, string correlationId, string queueName, string replyQueue,Dictionary<string,object> header = null)
     {
         using (MessageClient messageClient = new MessageClient(new MessageClientOptions()
         {
@@ -60,9 +60,7 @@ public static class TestHelpers
             ExchangeName = Environment.GetEnvironmentVariable("EXCHANGENAME") ?? "integration-exchange"
         }))
         {
-            messageClient.PublishMessage(queueName, bodyMessage, correlationId, null, replyQueue);
+            messageClient.PublishMessage(queueName, bodyMessage, correlationId, header, replyQueue);
         }
     }
 }
-
-

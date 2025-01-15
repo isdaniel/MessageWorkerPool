@@ -36,6 +36,11 @@ dotnet build
 
 ![](./images/arhc-overview.png)
 
+## Dependncy thrid-party Nuget package
+
+* [MessagePack](https://github.com/MessagePack-CSharp/MessagePack-CSharp) : Extremely Fast MessagePack Serializer.
+* [rabbitmq-dotnet-client](https://github.com/rabbitmq/rabbitmq-dotnet-client) : rabbitMq c# client.
+
 ## Quick Start
 
 Here’s a quick start guide for deploying your RabbitMQ and related services using the provided `docker-compose.yml` file and environment variables from `.env`.
@@ -102,25 +107,81 @@ public class Program
 
 ## Protocol between worker and task process
 
-The Protocol between worker and task process are use JSON format with standardInput & standardInout.
+The Protocol between worker and task process are use MessagePack binary format with faster and smaller data transfer, standardInput will send signal control worker process.
 
-### Worker Standard Output
+### Worker & worker pool protocol
 
-Currently, there are some status represnt status
+Currently,
+
+```c#
+ /// <summary>
+/// Encapsulate message from MQ service
+/// </summary>
+[MessagePackObject]
+public class MessageOutputTask
+{
+   /// <summary>
+   /// Output message from process
+   /// </summary>
+   [Key(0)]
+   public string Message { get; set; }
+   [Key(1)]
+   public MessageStatus Status { get; set; }
+   /// <summary>
+   /// Reply information that we want to store for continue execution message.
+   /// </summary>
+   [Key(2)]
+   [MessagePackFormatter(typeof(PrimitiveObjectResolver))]
+   public IDictionary<string, object> Headers { get; set; }
+   /// <summary>
+   /// Default use BasicProperties.Reply To queue name, task processor can overwrite reply queue name.
+   /// </summary>
+   /// <value>Default use BasicProperties.Reply</value>
+   [Key(3)]
+   public string ReplyQueueName { get; set; }
+}
+```
+
+```c#
+/// <summary>
+/// Encapsulate message from MQ service
+/// </summary>
+[MessagePackObject]
+public class MessageInputTask
+{
+   /// <summary>
+   /// Task body
+   /// </summary>
+   [Key(0)]
+   public string Message { get;  set; }
+   /// <summary>
+   /// Message CorrelationId for debugging issue between, producer and consumer
+   /// </summary>
+   [Key(1)]
+   public string CorrelationId { get;  set; }
+   /// <summary>
+   /// Original sending Queue Name
+   /// </summary>
+   [Key(2)]
+   public string OriginalQueueName { get;  set; }
+   /// <summary>
+   /// TimeoutMilliseconds : The time span to wait before canceling this (milliseconds),
+   /// default: -1, if value smaller than 0 represent InfiniteTimeSpan, otherwise use the setting positive value.
+   /// </summary>
+   [Key(3)]
+   [MessagePackFormatter(typeof(PrimitiveObjectResolver))]
+   public IDictionary<string, object> Headers { get; set; }
+}
+```
+
+
+there are some status represnt `MessageStatus`
 
 * IGNORE_MESSAGE (-1) : Append the message to the standard output without further processing.
   - `Status = -1` via Standard Output, task process tell worker this isn't a response nor ack message, only for record via Standard Output.
 
-```json
-{"Message":"this is func task.., message Send Time[2024/12/19 06:59:43:646] this message belong with groupA, Sleeping 1s","Status":-1}
-```
-
 * MESSAGE_DONE (200) : Notify the worker that this case can be acknowledged by the message queue service.
   - `Status = 200` via Standard Output, task process tell worker the task can be acked that mean it was finished.
-
-```json
-{"Message":"message done","Status":200}
-```
 
 * MESSAGE_DONE_WITH_REPLY (201) : Please ensure we satisfied below steps for supporting RPC.
    1. The client side cdoe must provide `ReplyTo` information.
@@ -135,9 +196,10 @@ We can write our own worker by different program language (I have provided pytho
 
 ### How do we handle long-running task or the task involves processing a lot of data rows?
 
-the concept like OS processing thread occurs a context switch (interrupt ..etc),
+the concept like OS processing thread occurs a context switch (interrupt ..etc).
 
-//TODO provide an example.
+Client can send a value `TimeoutMilliseconds` via Header: The time span to wait before canceling this (milliseconds), if the task execute exceed the value work process could use that value for setting
+interpret like `Cancellationtoken`.
 
 For example the `MessageOutputTask` JSON could look like below, `status=201` represents that this message will be re-queued for processing next time, the message will bring the `Headers` information when requeue again.
 
