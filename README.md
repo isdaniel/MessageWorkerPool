@@ -36,7 +36,7 @@ dotnet build
 
 ![](./images/arhc-overview.png)
 
-## Dependncy thrid-party Nuget package
+## Dependency third-party Nuget package
 
 * [MessagePack](https://github.com/MessagePack-CSharp/MessagePack-CSharp) : Extremely Fast MessagePack Serializer.
 * [rabbitmq-dotnet-client](https://github.com/rabbitmq/rabbitmq-dotnet-client) : rabbitMq c# client.
