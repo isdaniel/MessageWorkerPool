@@ -21,7 +21,7 @@ namespace IntegrationTester
             var replyQueueName = Environment.GetEnvironmentVariable("REPLY_QUEUE") ?? "integrationTesting_replyQ";
 
             CreateTestingData(totalMessageCount, queueName, replyQueueName);
-
+            Console.WriteLine("CreateTestingData done, all message pushed to message queue.");
             (ResponseMessage act, IModel channel, IConnection connection) = await TestHelpers.WaitForMessageResult(replyQueueName, (message) => JsonSerializer.Deserialize<ResponseMessage>(message));
 
             var actualList = (await GetAllBalanceFrom("public.act"));

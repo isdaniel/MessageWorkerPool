@@ -44,12 +44,12 @@ public static class TestHelpers
         channel.BasicQos(0, 1, false);
         channel.BasicConsume(replyQueue, false, consumer);
 
-        TResult res = await messageReceived.Task;
+        TResult res = await messageReceived.Task.ConfigureAwait(false);
 
         return (res, channel, connection);
     }
 
-    public static void SendingMessage(string bodyMessage, string correlationId, string queueName, string replyQueue,Dictionary<string,object> header = null)
+    public static void SendingMessage(string bodyMessage, string correlationId, string queueName, string replyQueue, Dictionary<string, object> header = null)
     {
         using (MessageClient messageClient = new MessageClient(new MessageClientOptions()
         {
