@@ -50,23 +50,29 @@ namespace IntegrationTester
                 ExchangeName = Environment.GetEnvironmentVariable("EXCHANGENAME") ?? "integration-exchange"
             }))
             {
-                for (int i = 1; i <= totalMessageCount; i++)
-                {
-                    Random rnd = new Random();
-                    var model = new BalanceModel()
+                Random rnd = new Random();
+                int i = 1;
+                while (i <= totalMessageCount) {
+                    try
                     {
-                        Balance = rnd.Next(1, 10000),
-                        UserName = Guid.NewGuid().ToString("N")
-                    };
+                        var model = new BalanceModel()
+                        {
+                            Balance = rnd.Next(1, 10000),
+                            UserName = Guid.NewGuid().ToString("N")
+                        };
 
-                    messageClient.PublishMessage(queueName,
+                        messageClient.PublishMessage(queueName,
                             JsonSerializer.Serialize(model),
                             $"{Environment.MachineName}_{Guid.NewGuid().ToString("N")}",
-                            new Dictionary<string, object>() {
-                                { "targetCount",totalMessageCount}
-                    }, i == totalMessageCount ? replyQueueName : string.Empty);
-
-                    InsertUserBalance(model);
+                            new Dictionary<string, object>() { { "targetCount", totalMessageCount } },
+                            i == totalMessageCount ? replyQueueName : string.Empty);
+                        InsertUserBalance(model);
+                        i++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to publish message {i}: {ex.Message}");
+                    }
                 }
             }
         }
