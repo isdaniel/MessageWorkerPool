@@ -11,10 +11,11 @@ namespace WorkerProcessSample
 
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             MessageProcessor processor = new MessageProcessor();
-            processor.DoWork((task) => {
+            await processor.InitialAsync();
+            processor.DoWork((task,token) => {
                 Console.WriteLine($"this is func task.., message {task.Message}, Sleeping 1s".ToIgnoreMessage());
                 Thread.Sleep(1000);
                 return new MessageOutputTask()

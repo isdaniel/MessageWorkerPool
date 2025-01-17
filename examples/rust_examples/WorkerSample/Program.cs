@@ -41,6 +41,6 @@ public class Program
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
                 PrefetchTaskCount = 3
-            }, new WorkerPoolSetting() { WorkerUnitCount = 8, CommandLine = "./worker_dir/ClientSamlpe", Arguments = string.Empty, QueueName = Environment.GetEnvironmentVariable("QUEUENAME"), });
+            }, new WorkerPoolSetting() { WorkerUnitCount = 8, CommandLine = "./worker_dir/ClientSample", Arguments = string.Empty, QueueName = Environment.GetEnvironmentVariable("QUEUENAME"), });
 
 }

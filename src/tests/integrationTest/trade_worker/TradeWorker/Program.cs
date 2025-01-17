@@ -36,8 +36,8 @@ public class Program
                 });
             }).AddRabbitMqWorkerPool(new RabbitMqSetting
             {
-                UserName = "guest",
-                Password = "guest",
+                UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
+                Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
                 HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME") ?? "localhost",
                 Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
                 PrefetchTaskCount = 3

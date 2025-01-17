@@ -3,7 +3,7 @@ COPY ./ /sourceCode
 WORKDIR /sourceCode
 RUN dotnet restore
 RUN dotnet publish -c Release -o /app
-COPY ./worker.py /app/worker.py
+COPY ./processor_py /app/processor_py
 
 FROM mcr.microsoft.com/dotnet/aspnet:6.0 as server
 # install worker client runtime
@@ -16,7 +16,8 @@ RUN apt-get update && \
     apt-get install procps -y && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 COPY --from=build /app .
-CMD ["dotnet","WorkerSample.dll"]
+RUN pip install --no-cache-dir -r /app/processor_py/requirements.txt
+# Set the entry point for the application
+CMD ["dotnet", "WorkerSample.dll"]

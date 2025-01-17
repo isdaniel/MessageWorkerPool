@@ -128,8 +128,11 @@ namespace MessageWorkerPool.RabbitMq
 
                 Logger.LogInformation($"Setup Process!");
                 string pipeName = $"pipeDataStream_{Guid.NewGuid().ToString("N")}";
+                var creatiepipeTask = CreateOperationPipeAsync(pipeName).ConfigureAwait(false);
+                //Logger.LogInformation($"pipeName : {pipeName}");
                 await Process.StandardInput.WriteLineAsync(pipeName).ConfigureAwait(false);
-                _pipeDataStream = await CreateOperationPipeAsync(pipeName).ConfigureAwait(false);
+                //must wait after sent pipeName to woker-process
+                _pipeDataStream = await creatiepipeTask;
                 Logger.LogInformation($"data pipe create successfully: {pipeName}");
                 ReceiveEvent = async (sender, e) =>
                 {
