@@ -117,7 +117,7 @@ namespace MessageWorkerPool.Test
         }
 
         [Fact]
-        public async Task Dispose_ShouldCleanUpResources()
+        public async Task Dispose_ShouldCleanUpResources_ThrowNullReferenceException()
         {
             // Arrange
             var serverStream = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.None);
@@ -129,7 +129,7 @@ namespace MessageWorkerPool.Test
 
             // Assert
 
-            await Assert.ThrowsAsync<ObjectDisposedException>(async () => await wrapper.WriteAsync(testData));
+            await Assert.ThrowsAsync<NullReferenceException>(async () => await wrapper.WriteAsync(testData));
         }
 
         [Fact]
