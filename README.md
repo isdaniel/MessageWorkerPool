@@ -199,7 +199,7 @@ We can write our own worker by different program language (I have provided pytho
 the concept like OS processing thread occurs a context switch (interrupt ..etc).
 
 Client can send a value `TimeoutMilliseconds` via Header: The time span to wait before canceling this (milliseconds), if the task execute exceed the value work process could use that value for setting
-interpret like `Cancellationtoken`.
+interrupt like `Cancellationtoken`.
 
 For example the `MessageOutputTask` JSON could look like below, `status=201` represents that this message will be re-queued for processing next time, the message will bring the `Headers` information when requeue again.
 
