@@ -24,11 +24,11 @@ jobs:
       working-directory: ./src/tests/integrationTest
 
     # todo tradeworker can be parameter,
-    # - name: Start chaos script
-    #   run: |
-    #     chmod +x ./chaos_script.sh
-    #     nohup ./chaos_script.sh 'tradeworker' > chaos_script.log 2>&1 &
-    #   working-directory: ./src/tests/integrationTest/autoScript
+    - name: Start chaos script
+      run: |
+        chmod +x ./chaos_script.sh
+        nohup ./chaos_script.sh 'tradeworker' > chaos_script.log 2>&1 &
+      working-directory: ./src/tests/integrationTest/autoScript
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
