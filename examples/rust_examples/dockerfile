@@ -1,18 +1,18 @@
-FROM mcr.microsoft.com/dotnet/sdk:6.0 as build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 as build
 COPY ./ /sourceCode
 WORKDIR /sourceCode
 RUN dotnet restore
 RUN dotnet publish -c Release -o /app
 
-FROM rust:1.67 as rust_build
-COPY ./ClientSamlpe /ClientSamlpe
-WORKDIR /ClientSamlpe
+FROM rust:1.70 as rust_build
+COPY ./ClientSample /ClientSample
+WORKDIR /ClientSample
 # Build the application
 RUN cargo build --release
 #copy build binary to /worker_dir
-RUN mkdir -p /worker_dir && cp ./target/release/ClientSamlpe /worker_dir/ClientSamlpe
+RUN mkdir -p /worker_dir && cp ./target/release/ClientSample /worker_dir/ClientSample
 
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 as server
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 as server
 # Install required runtime tools
 RUN apt-get update && \
     apt-get install -y procps && \

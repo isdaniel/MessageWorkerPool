@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputPath>../ProcessBin</OutputPath>
@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="MessageWorkerPool" Version="*" />
+    <PackageReference Include="MessagePack" Version="3.1.1" />
   </ItemGroup>
 
 </Project>
