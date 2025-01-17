@@ -22,6 +22,14 @@ namespace MessageWorkerPool.IO
         public PipeStream BaseStream { get; private set; }
 
         /// <summary>
+        /// Finalizer to ensure resources are released if Dispose is not called explicitly.
+        /// </summary>
+        ~PipeStreamWrapper()
+        {
+            Dispose(false);
+        }
+
+        /// <summary>
         ///     Gets a value indicating whether the <see cref="BaseStream"/> object is connected or not.
         /// </summary>
         /// <returns>
@@ -140,16 +148,19 @@ namespace MessageWorkerPool.IO
             await BaseStream.WriteAsync(lenbuf, 0, lenbuf.Length);
         }
 
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
         /// <summary>
         /// Closes the current stream and releases any resources (such as sockets and file handles) associated with the current stream.
         /// </summary>
-        /// <param name="disposing">Indicates whether managed resources should be disposed.</param>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this); // Prevent finalizer from running.
+        }
+
+        /// <summary>
+        /// Releases unmanaged and optionally managed resources.
+        /// </summary>
+        /// <param name="disposing">True to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
         protected virtual void Dispose(bool disposing)
         {
             if (_disposed)
@@ -157,16 +168,24 @@ namespace MessageWorkerPool.IO
                 return;
             }
 
-            if (BaseStream.IsConnected)
+            if (disposing)
             {
-                BaseStream.Close();
+                // Dispose managed resources.
+                if (BaseStream != null)
+                {
+                    if (BaseStream.IsConnected)
+                    {
+                        BaseStream.Close();
+                    }
+                    BaseStream.Dispose();
+                    BaseStream = null;
+                }
             }
+
+            // Free unmanaged resources here, if any.
 
             _disposed = true;
         }
 
-        public void WaitForPipeDrain() {
-            BaseStream.WaitForPipeDrain();
-        }
     }
 }

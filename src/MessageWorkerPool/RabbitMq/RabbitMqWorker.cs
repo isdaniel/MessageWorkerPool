@@ -374,6 +374,9 @@ namespace MessageWorkerPool.RabbitMq
             Logger.LogInformation($"End WaitForExit and free resource....");
         }
 
+        /// <summary>
+        /// Disposes managed and unmanaged resources used by the RabbitMqWorker.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -381,9 +384,9 @@ namespace MessageWorkerPool.RabbitMq
         }
 
         /// <summary>
-        /// Disposes managed resources.
+        /// Protected implementation of Dispose pattern.
         /// </summary>
-        /// <param name="disposing">Indicates whether managed resources should be disposed.</param>
+        /// <param name="disposing">Indicates whether to release managed resources.</param>
         protected virtual void Dispose(bool disposing)
         {
             if (_disposed)
@@ -391,20 +394,51 @@ namespace MessageWorkerPool.RabbitMq
                 return;
             }
 
-            if (Process != null)
+            if (disposing)
             {
-                Process.Dispose();
-                Process.Close();
-                Process = null;
+                // Dispose managed resources
+                if (Process != null)
+                {
+                    Process.Close();
+                    Process.Dispose();
+                    Process = null;
+                }
+
+                if (channel != null)
+                {
+                    try
+                    {
+                        if (!channel.IsClosed)
+                        {
+                            channel.Close();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger?.LogError(ex, "Error while closing RabbitMQ channel.");
+                    }
+                    finally
+                    {
+                        channel.Dispose();
+                        channel = null;
+                    }
+                }
+
+                if (_pipeDataStream != null)
+                {
+                    _pipeDataStream.Dispose();
+                    _pipeDataStream = null;
+                }
+
+                if (_receivedWaitEvent != null)
+                {
+                    _receivedWaitEvent.Dispose();
+                    _receivedWaitEvent = null;
+                }
+
             }
 
-            if (channel?.IsClosed != null)
-            {
-                channel.Close();
-                channel = null;
-            }
-
-            _receivedWaitEvent.Dispose();
+            // Release unmanaged resources here if any
 
             _disposed = true;
         }
