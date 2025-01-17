@@ -28,9 +28,9 @@ public class MessageClient : IDisposable
     public virtual string PublishMessage(
         string routing,
         string messageBody,
-        string correlationId = null,
-        Dictionary<string, object> messageHeaders = null,
-        string replyQueueName = null)
+        string? correlationId = null,
+        Dictionary<string, object>? messageHeaders = null,
+        string? replyQueueName = null)
     {
         if (string.IsNullOrWhiteSpace(correlationId))
         {
@@ -41,10 +41,6 @@ public class MessageClient : IDisposable
         {
             props = channel.CreateBasicProperties();
             props.ContentType = "application/json";
-            if (this._options.MessageExpirationTimeout != null)
-            {
-                props.Expiration = this._options.MessageExpirationTimeout.Value.TotalMilliseconds.ToString();
-            }
 
             if (!string.IsNullOrWhiteSpace(replyQueueName))
             {

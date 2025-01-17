@@ -5,7 +5,8 @@ namespace MessageWorkerPool.Utilities
 {
     public class MessageCommunicate
     {
-        public const string CLOSED_SIGNAL = "quit";
+        public const string CLOSED_SIGNAL = "__quit__";
+        public const string INTERRUPT_SIGNAL = "__context_swich__";
     }
 
     public enum MessageStatus : short {

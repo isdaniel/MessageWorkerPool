@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:6.0 as build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 as build
 COPY ./ /sourceCode
 WORKDIR /sourceCode/tests/integrationTest
 RUN dotnet build ./WorkerBuilder.sln --configuration Release
@@ -6,7 +6,7 @@ RUN mkdir -p /app && \
     cp ./trade_worker/WorkerProcess/* /app -R
 
 # WorkerPool runtime
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 as server
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 as server
 # install worker client runtime
 RUN apt-get update && \
     apt-get install procps -y && \
@@ -15,4 +15,4 @@ RUN apt-get update && \
 
 WORKDIR /app
 COPY --from=build /app .
-CMD ["sh", "-c", "sleep 5 && exec dotnet TradeWorker.dll"]
+CMD ["sh", "-c", "sleep 2 && exec dotnet TradeWorker.dll"]

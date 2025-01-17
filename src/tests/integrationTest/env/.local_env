@@ -1,2 +1,2 @@
 RABBITMQ_HOSTNAME=127.0.0.1
-DBConnection="Data Source=127.0.0.1;Initial Catalog=orleans;User ID=sa;Password=test.123;TrustServerCertificate=true;"
+DBConnection="Host=127.0.0.1;Port=9999;Username=postgres;Password=test.123;Database=postgres;"

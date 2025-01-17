@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Dapper;
 using MessageWorkerPool.Utilities;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using ShareLib;
 
 namespace WorkerProcessSample
@@ -24,7 +24,8 @@ namespace WorkerProcessSample
         static async Task Main(string[] args)
         {
             MessageProcessor processor = new MessageProcessor();
-            await processor.DoWorkAsync(async (task) =>
+            await processor.InitialAsync();
+            await processor.DoWorkAsync(async (task, cancelToken) =>
             {
                 var model = JsonSerializer.Deserialize<BalanceModel>(task.Message);
                 var currentCount = await AddUserBalanceAndGetCountAsync(model);
@@ -65,15 +66,15 @@ namespace WorkerProcessSample
         {
             ArgumentNullException.ThrowIfNull(model);
 
-            using (var conn = new SqlConnection(GetEnvironmentVariable("DBConnection")))
+            using (var conn = new NpgsqlConnection(GetEnvironmentVariable("DBConnection")))
             {
                 await conn.OpenAsync().ConfigureAwait(false);
 
                 var query = @"
-INSERT INTO dbo.Act (UserName, Balance) VALUES (@UserName, @Balance);
+INSERT INTO public.act (UserName, Balance) VALUES (@UserName, @Balance);
 
 SELECT COUNT(*) AS CurrentCount
-FROM dbo.Act;";
+FROM public.act;";
 
                 // Use QuerySingleAsync or QuerySingleOrDefaultAsync to retrieve the count
                 return await conn.QuerySingleAsync<int>(query, new

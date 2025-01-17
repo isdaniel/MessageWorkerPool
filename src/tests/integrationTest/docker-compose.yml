@@ -37,18 +37,17 @@ services:
       - envpreparatory
     networks:
       - net-mq
-  sqlserver:
-    image: dog830228/silo-db:1.1
-    hostname: sqlsever
+  postgres:
+    image: postgres:16
+    hostname: postgres-server
     ports:
-      - "1433:1433"
+      - "9999:5432"
     restart: always
     networks:
       - net-mq
     environment:
-      ACCEPT_EULA: 'Y'
-      SA_PASSWORD: 'test.123'
-      MSSQL_PID: 'Standard'
+      POSTGRES_PASSWORD: 'test.123'
+      POSTGRES_USER: 'postgres'
 networks:
   net-mq:
     driver: bridge

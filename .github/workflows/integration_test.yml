@@ -33,7 +33,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '6.0.x'
+        dotnet-version: '8.0.x'
     - name: Load environment variables from .env file & Doing integration test
       run: |
         set -a
@@ -43,8 +43,8 @@ jobs:
         for i in {1..10}
         do
           docker start $(docker ps -a --filter "name=envpreparatory" --format "{{.ID}}")
-          echo "Waiting for 2 seconds before running .NET testing iteration $i"
-          sleep 2
+          echo "Waiting for 5 seconds before running .NET testing iteration $i"
+          sleep 5
           echo "Running .NET testing iteration $i"
           dotnet test IntegrationTester.sln --configuration Release --logger:"console;verbosity=detailed"
         done

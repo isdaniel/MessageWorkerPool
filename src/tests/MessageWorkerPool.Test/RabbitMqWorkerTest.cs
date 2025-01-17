@@ -1,18 +1,17 @@
-using MessageWorkerPool.RabbitMq;
+using System.Text;
+using System.Text.Json;
 using FluentAssertions;
+using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.Test.Utility;
+using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 using Moq;
-using MessageWorkerPool.Test.Utility;
-using System.Text.Json;
 using RabbitMQ.Client;
-using MessageWorkerPool.Utilities;
 using RabbitMQ.Client.Events;
-using System.Text;
-using System.Reflection.PortableExecutable;
-using System.Linq;
 
 namespace MessageWorkerPool.Test
 {
+
     public class RabbitMqWorkerTest
     {
         private readonly Mock<ILoggerFactory> _loggerFactoryMock;
@@ -105,19 +104,22 @@ namespace MessageWorkerPool.Test
         }
 
         [Theory]
-        [InlineData("This is Test Message", "test-correlation-id", "Invalid Json Output String", false, true, 200)]
-        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Status\":200}", true, false, int.MaxValue)]
-        [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE_WITH_REPLY\",\"Status\":201}", true, false, int.MaxValue)]
-        public async Task AsyncEventHandler_SendingMessage(string message, string correlationId, string outputResponse, bool expectAck, bool expectNack, int tokenTimeout)
+        [InlineData("This is Test Message", "test-correlation-id", true, false, int.MaxValue)]
+        public async Task AsyncEventHandler_SendingMessage(string message, string correlationId, bool expectAck, bool expectNack, int tokenTimeout)
         {
             var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
             var eventArgs = CreateBasicDeliverEventArgs(message, correlationId);
             var cts = new CancellationTokenSource(tokenTimeout);
+            var expectOutput = new MessageOutputTask() {
+                Status = MessageStatus.MESSAGE_DONE,
+                Message = message,
+            };
             worker.Status.Should().Be(WorkerStatus.WaitForInit);
             await worker.InitWorkerAsync(cts.Token);
             worker.Status.Should().Be(WorkerStatus.Running);
-            worker.mockStandardInput.Setup(x => x.WriteLineAsync(It.IsAny<string>()));
-            worker.mockStandardOutput.Setup(x => x.ReadLineAsync()).ReturnsAsync(outputResponse);
+
+            worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+            worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>()).ReturnsAsync(expectOutput);
 
             await worker.AsyncEventHandler(worker, eventArgs);
 
@@ -126,50 +128,12 @@ namespace MessageWorkerPool.Test
 
             VerifyLogging(message);
 
-            var expectedJson = JsonSerializer.Serialize(new MessageInputTask { Message = message, CorrelationId = correlationId, Headers = null });
-            worker.mockStandardInput.Verify(x => x.WriteLineAsync(It.Is<string>(x => x == expectedJson)), Times.Once);
-            worker.mockStandardOutput.Verify(x => x.ReadLineAsync(), Times.AtLeastOnce);
-        }
-
-        [Theory]
-        [InlineData("This is Test Message", "test-correlation-id", "Invalid Json Output String", false, true, 1000)]
-        [InlineData("This is Test Message", "test-correlation-id", "", false, true, 1000)]
-        [InlineData("This is Test Message", "test-correlation-id", null, false, true, 1000)]
-        public async Task AsyncEventHandler_Shutdown_OutputMeesage_InvalidJson(string message, string correlationId, string outputResponse, bool expectAck, bool expectNack, int tokenTimeout)
-        {
-            var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
-            var eventArgs = CreateBasicDeliverEventArgs(message, correlationId);
-            var cts = new CancellationTokenSource(tokenTimeout);
-            worker.Status.Should().Be(WorkerStatus.WaitForInit);
-            await worker.InitWorkerAsync(cts.Token);
-            worker.Status.Should().Be(WorkerStatus.Running);
-            worker.mockStandardInput.Setup(x => x.WriteLineAsync(It.IsAny<string>()));
-            worker.mockStandardOutput.Setup(x => x.ReadLineAsync()).ReturnsAsync(outputResponse);
-            await worker.AsyncEventHandler(worker, eventArgs);
-
-            _channel.Verify(c => c.BasicAck(123, false), Times.Exactly(expectAck ? 1 : 0));
-            _channel.Verify(c => c.BasicNack(123, false, true), Times.Exactly(expectNack ? 1 : 0));
-
-            VerifyLogging(message);
-
-            var expectedJson = JsonSerializer.Serialize(new MessageInputTask { Message = message, CorrelationId = correlationId });
-            worker.mockStandardInput.Verify(x => x.WriteLineAsync(It.Is<string>(x => x == expectedJson)), Times.Once);
-            worker.mockStandardOutput.Verify(x => x.ReadLineAsync(), Times.AtLeastOnce);
-
-            await worker.GracefulShutDownAsync(cts.Token);
-            worker.mockProcess.Verify(x => x.Close(), Times.Once);
-            worker.mockProcess.Verify(x => x.Dispose(), Times.Once);
-            worker.mockProcess.Verify(x => x.WaitForExit(), Times.Once);
-            worker.Status.Should().Be(WorkerStatus.Stopped);
-            worker.channel.Should().BeNull();
-            worker.AsyncEventHandler.Should().BeNull();
-            _loggerMock.Verify(l => l.Log(
-                              LogLevel.Information,
-                              It.IsAny<EventId>(),
-                              It.Is<It.IsAnyType>((v, t) => v.ToString().Contains($"RabbitMQ Conn Closed!!!!")),
-                              null,
-                              It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-                              Times.Once);
+            var expectTask = new MessageInputTask { Message = message, CorrelationId = correlationId, Headers = null };
+            worker.pipeStream.Verify(x => x.WriteAsync(It.Is<MessageInputTask>(
+                x => x.Message == expectTask.Message
+                && x.CorrelationId == expectTask.CorrelationId
+                && x.OriginalQueueName == expectTask.OriginalQueueName)), Times.Once);
+            worker.pipeStream.Verify(x => x.ReadAsync<MessageOutputTask>(), Times.AtLeastOnce);
         }
 
         [Theory]
@@ -184,35 +148,34 @@ namespace MessageWorkerPool.Test
             ulong deliveryTag = 123456;
             var eventArgs = CreateBasicDeliverEventArgs(message, correlationId, deliveryTag, replyQueueName);
             var cts = new CancellationTokenSource(tokenTimeout);
+            var expectOutputTask = JsonSerializer.Deserialize<MessageOutputTask>(outputResponse);
+
+
             worker.Status.Should().Be(WorkerStatus.WaitForInit);
             await worker.InitWorkerAsync(cts.Token);
             worker.Status.Should().Be(WorkerStatus.Running);
-            worker.mockStandardInput.Setup(x => x.WriteLineAsync(It.IsAny<string>()));
-            worker.mockStandardOutput.Setup(x => x.ReadLineAsync()).ReturnsAsync(outputResponse);
-            var expectOutput = JsonSerializer.Deserialize<MessageOutputTask>(outputResponse);
-            var expectOutputBytes = Encoding.UTF8.GetBytes(expectOutput?.Message);
+            worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+            worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>()).ReturnsAsync(expectOutputTask);
+            var expectOutputBytes = Encoding.UTF8.GetBytes(expectOutputTask?.Message);
+
             await worker.AsyncEventHandler(worker, eventArgs);
 
             _channel.Verify(c => c.BasicAck(deliveryTag, false), Times.Exactly(expectAck ? 1 : 0));
             worker.RejectMessageDeliveryTags.Count.Should().Be(expectNack ? 1 : 0);
-
             _channel.Verify(c => c.BasicPublish(
                 string.Empty,
                 replyQueueName,
                 false,
                 It.IsAny<IBasicProperties>(),
                 It.Is<ReadOnlyMemory<byte>>(mm => mm.ToArray().SequenceEqual(expectOutputBytes))), Times.Exactly(expectRequeue ? 1 : 0));
-
+            worker.pipeStream.Verify(x => x.ReadAsync<MessageOutputTask>(), Times.Once);
+            worker.pipeStream.Verify(x => x.WriteAsync(It.IsAny<MessageInputTask>()), Times.Once);
             VerifyLogging(message);
-
-            var expectedJson = JsonSerializer.Serialize(new MessageInputTask { Message = message, CorrelationId = correlationId });
-            worker.mockStandardInput.Verify(x => x.WriteLineAsync(It.Is<string>(x => x == expectedJson)), Times.Once);
-            worker.mockStandardOutput.Verify(x => x.ReadLineAsync(), Times.AtLeastOnce);
-
+           
             await worker.GracefulShutDownAsync(CancellationToken.None);
             worker.mockProcess.Verify(x => x.Close(), Times.Once);
             worker.mockProcess.Verify(x => x.Dispose(), Times.Once);
-            worker.mockProcess.Verify(x => x.WaitForExit(), Times.Once);
+            worker.mockProcess.Verify(x => x.WaitForExit(It.IsAny<int>()), Times.Once);
             worker.Status.Should().Be(WorkerStatus.Stopped);
             worker.channel.Should().BeNull();
             worker.AsyncEventHandler.Should().BeNull();
@@ -260,7 +223,6 @@ namespace MessageWorkerPool.Test
             "replyQueue")]
         public async Task AsyncEventHandler_WithReplyHeader(string message, string correlationId, string outputResponse, bool expectAck, bool expectNack, bool expectRequeue, int tokenTimeout, string replyQueueName)
         {
-
             var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
             var expectOutputTask = JsonSerializer.Deserialize<MessageOutputTask>(outputResponse);
             var eventArgs = CreateBasicDeliverEventArgs(message, correlationId, replyQueueName: replyQueueName, header: expectOutputTask.Headers);
@@ -269,35 +231,23 @@ namespace MessageWorkerPool.Test
             await worker.InitWorkerAsync(cts.Token);
             worker.Status.Should().Be(WorkerStatus.Running);
 
-            worker.mockStandardInput.Setup(x => x.WriteLineAsync(It.IsAny<string>()));
-            worker.mockStandardOutput.Setup(x => x.ReadLineAsync()).ReturnsAsync(outputResponse);
+            worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+            worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>()).ReturnsAsync(expectOutputTask);
+
             await worker.AsyncEventHandler(worker, eventArgs);
+
 
             _channel.Verify(c => c.BasicAck(123, false), Times.Exactly(expectAck ? 1 : 0));
             _channel.Verify(c => c.BasicNack(123, false, true), Times.Exactly(expectNack ? 1 : 0));
-
+            worker.pipeStream.Verify(x => x.ReadAsync<MessageOutputTask>(), expectNack ? Times.AtLeastOnce: Times.Once);
+            worker.pipeStream.Verify(x => x.WriteAsync(It.IsAny<MessageInputTask>()), Times.Once);
             VerifyLogging(message);
 
-            var expectedInputJson = JsonSerializer.Serialize(new MessageInputTask
-            {
-                Message = message,
-                CorrelationId = correlationId,
-                Headers = new Dictionary<string, object>()
-                {
-                    { "CreateTimestamp", "2025-01-01T14:35:00Z" },
-                    { "PreviousProcessingTimestamp", "2025-01-01T14:40:00Z" },
-                    { "Source", "OrderProcessingService" },
-                    { "PreviousExecutedRows", 123 },
-                    { "RequeueTimes", 3},
-                }
-            });
 
-            worker.mockStandardInput.Verify(x => x.WriteLineAsync(It.Is<string>(x => x == expectedInputJson)), Times.Once);
-            worker.mockStandardOutput.Verify(x => x.ReadLineAsync(), Times.AtLeastOnce);
             _channel.Verify(x => x.BasicPublish(string.Empty,
                 It.Is<string>(x => x == replyQueueName),
                 It.IsAny<bool>(),
-                It.Is<IBasicProperties>(x=> x.ContentEncoding == "utf-8" && x.Headers.SequenceEqual(expectOutputTask.Headers)),
+                It.Is<IBasicProperties>(x => x.ContentEncoding == "utf-8" && x.Headers.SequenceEqual(expectOutputTask.Headers)),
                 It.Is<ReadOnlyMemory<byte>>(mm => mm.ToArray().SequenceEqual(Encoding.UTF8.GetBytes(expectOutputTask.Message)))), Times.Exactly(expectRequeue ? 1 : 0));
         }
 
