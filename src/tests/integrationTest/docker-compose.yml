@@ -31,7 +31,7 @@ services:
     build:
       context: ../../
       dockerfile: ./tests/integrationTest/trade_worker/Dockerfile
-    stop_grace_period: 30s
+    stop_grace_period: 300s
     env_file: ./env/.env
     depends_on:
       - envpreparatory
