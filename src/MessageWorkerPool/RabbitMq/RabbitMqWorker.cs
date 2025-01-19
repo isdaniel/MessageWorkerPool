@@ -129,11 +129,10 @@ namespace MessageWorkerPool.RabbitMq
                 Logger.LogInformation($"Setup Process!");
                 string pipeName = $"pipeDataStream_{Guid.NewGuid().ToString("N")}";
                 var creatiepipeTask = CreateOperationPipeAsync(pipeName).ConfigureAwait(false);
-                //Logger.LogInformation($"pipeName : {pipeName}");
-                await Process.StandardInput.WriteLineAsync(pipeName).ConfigureAwait(false);
+                await SendingDataToWorker(pipeName).ConfigureAwait(false);
+                Logger.LogInformation($"data pipe create successfully: {pipeName}");
                 //must wait after sent pipeName to woker-process
                 _pipeDataStream = await creatiepipeTask;
-                Logger.LogInformation($"data pipe create successfully: {pipeName}");
                 ReceiveEvent = async (sender, e) =>
                 {
                     var correlationId = e.BasicProperties.CorrelationId;
@@ -160,6 +159,12 @@ namespace MessageWorkerPool.RabbitMq
             }
 
             await Task.CompletedTask;
+        }
+
+        private async Task SendingDataToWorker(string command)
+        {
+            await Process.StandardInput.WriteLineAsync(command).ConfigureAwait(false);
+            await Process.StandardInput.FlushAsync().ConfigureAwait(false);
         }
 
         internal async virtual Task<PipeStreamWrapper> CreateOperationPipeAsync(string pipeName)
@@ -366,8 +371,7 @@ namespace MessageWorkerPool.RabbitMq
         {
             //Sending close message
             Logger.LogInformation($"Begin WaitForExit free resource....");
-            await Process.StandardInput.WriteLineAsync(MessageCommunicate.CLOSED_SIGNAL);
-            await Process.StandardInput.FlushAsync();
+            await SendingDataToWorker(MessageCommunicate.CLOSED_SIGNAL);
             _pipeDataStream.Dispose();
             //to avoid some worker block in Console.ReadLine lead to program can't get down successfully
             while (!Process.WaitForExit(3000))
