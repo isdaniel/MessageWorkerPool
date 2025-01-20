@@ -8,9 +8,7 @@
 
 ## Introduction
 
-Efficiently manages a pool of worker processes in C#.
-
-MessageWorkerPool is a C# library that allows you to efficiently manage a pool of worker processes. It integrates with message queue service to handle message processing in a decoupled, scalable, and configurable manner, This helps in efficiently handling tasks in a multi-processes environment, particularly for applications that require high throughput and low latency.
+`MessageWorkerPool` is a C# library designed to efficiently manage a pool of worker processes. It seamlessly integrates with message queue services to process messages in a decoupled, scalable, and configurable manner. This library excels in handling tasks within multi-process environments, especially for applications demanding high throughput and low latency. It also supports graceful shutdown, ensuring a smooth process termination without disrupting ongoing tasks.
 
 ## Why Process Pool rather than Thread Pool?
 
@@ -111,7 +109,28 @@ The Protocol between worker and task process are use MessagePack binary format w
 
 ### Worker & worker pool protocol
 
-Currently,
+[msgpack](https://msgpack.org/) protocols data type support as below class & `byte[]` format.
+
+The corresponding `byte[]` data is:
+
+```
+[132,161,48,179,78,101,119,32,79,117,116,80,117,116,32,77,101,115,115,97,103,101,33,161,49,204,200,161,50,129,164,116,101,115,116,167,116,101,115,116,118,97,108,161,51,169,116,101,115,116,81,117,101,117,101]
+```
+
+To represent the provided pseudo-JSON structure using the `MsgPack` format (byte[]), we can break down the process as follows:
+
+```json
+{
+    "0": "New OutPut Message!",
+    "1": 200,
+    "2": {
+        "test": "testval"
+    },
+    "3": "testQueue"
+}
+```
+
+More information you can use [msgpack-converter](https://ref45638.github.io/msgpack-converter/) to decode and encode.
 
 ```c#
  /// <summary>
@@ -123,21 +142,21 @@ public class MessageOutputTask
    /// <summary>
    /// Output message from process
    /// </summary>
-   [Key(0)]
+   [Key("0")]
    public string Message { get; set; }
-   [Key(1)]
+   [Key("1")]
    public MessageStatus Status { get; set; }
    /// <summary>
    /// Reply information that we want to store for continue execution message.
    /// </summary>
-   [Key(2)]
+   [Key("2")]
    [MessagePackFormatter(typeof(PrimitiveObjectResolver))]
    public IDictionary<string, object> Headers { get; set; }
    /// <summary>
    /// Default use BasicProperties.Reply To queue name, task processor can overwrite reply queue name.
    /// </summary>
    /// <value>Default use BasicProperties.Reply</value>
-   [Key(3)]
+   [Key("3")]
    public string ReplyQueueName { get; set; }
 }
 ```
@@ -152,30 +171,30 @@ public class MessageInputTask
    /// <summary>
    /// Task body
    /// </summary>
-   [Key(0)]
+   [Key("0")]
    public string Message { get;  set; }
    /// <summary>
    /// Message CorrelationId for debugging issue between, producer and consumer
    /// </summary>
-   [Key(1)]
+   [Key("1")]
    public string CorrelationId { get;  set; }
    /// <summary>
    /// Original sending Queue Name
    /// </summary>
-   [Key(2)]
+   [Key("2")]
    public string OriginalQueueName { get;  set; }
    /// <summary>
    /// TimeoutMilliseconds : The time span to wait before canceling this (milliseconds),
    /// default: -1, if value smaller than 0 represent InfiniteTimeSpan, otherwise use the setting positive value.
    /// </summary>
-   [Key(3)]
+   [Key("3")]
    [MessagePackFormatter(typeof(PrimitiveObjectResolver))]
    public IDictionary<string, object> Headers { get; set; }
 }
 ```
 
 
-there are some status represnt `MessageStatus`
+Currently, there are some status represnt `MessageStatus`
 
 * IGNORE_MESSAGE (-1) : Append the message to the standard output without further processing.
   - `Status = -1` via Standard Output, task process tell worker this isn't a response nor ack message, only for record via Standard Output.
