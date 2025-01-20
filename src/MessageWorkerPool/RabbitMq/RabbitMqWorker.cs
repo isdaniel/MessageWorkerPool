@@ -11,10 +11,7 @@ using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.IO.Pipes;
-using System.IO;
 using MessageWorkerPool.IO;
-using System.Linq;
-using MessagePack;
 
 /// <summary>
 /// Represents a worker that processes messages from a RabbitMQ queue.
