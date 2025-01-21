@@ -22,9 +22,10 @@ await processor.DoWorkAsync(async (task,cancelToken) =>
         }
         catch (TaskCanceledException)
         {
-            Console.WriteLine("Task was canceled.");
+            //interrupt by cancellation token like a context switch.
+            //Console.WriteLine("Task was canceled.");
         }
-        
+
         model.CurrentSum += i;
     }
     

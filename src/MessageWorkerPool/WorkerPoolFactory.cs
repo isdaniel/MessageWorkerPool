@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace MessageWorkerPool
 {
-   /// <summary>
+    /// <summary>
     /// Interface defining a factory for creating worker pools.
     /// </summary>
     public interface IWorkerPoolFactory

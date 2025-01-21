@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using MessageWorkerPool.RabbitMq;
 using System;
 using System.Linq;
+using MessageWorkerPool.Utilities;
 
 namespace MessageWorkerPool.Extensions
 {

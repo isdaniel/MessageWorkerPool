@@ -71,13 +71,14 @@ namespace ShareLib
         int ParseTimeout(IDictionary<string, object> headers)
         {
             if (headers != null &&
-                headers.TryGetValue("TimeoutMilliseconds", out var str) &&
-                int.TryParse(str as string, out var timeout))
+                headers.TryGetValue("TimeoutMilliseconds", out var timeout) &&
+                timeout is int timeoutValue)
             {
-                return timeout;
+                return timeoutValue;
             }
             return -1; // Default value if parsing fails
         }
+
 
         private CancellationToken CreateMessageCancellationToken(int timeoutMilliseconds)
         {

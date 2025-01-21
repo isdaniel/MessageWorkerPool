@@ -1,14 +1,9 @@
 using System;
-using System.Data.Common;
+using MessageWorkerPool.Utilities;
 using RabbitMQ.Client;
 
 namespace MessageWorkerPool.RabbitMq
 {
-    public abstract class MqSettingBase
-    {
-
-        public abstract string GetConnectionString();
-    }
 
     public class RabbitMqSetting : MqSettingBase
     {

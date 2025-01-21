@@ -3,6 +3,7 @@ using MessageWorkerPool.Extensions;
 using MessageWorkerPool.RabbitMq;
 using FluentAssertions;
 using Microsoft.Extensions.Hosting;
+using MessageWorkerPool.Utilities;
 
 namespace MessageWorkerPool.Test
 {

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 using Moq;
 using RabbitMQ.Client;
