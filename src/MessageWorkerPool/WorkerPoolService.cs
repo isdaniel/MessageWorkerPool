@@ -28,14 +28,28 @@ namespace MessageWorkerPool
 
         protected override async Task ExecuteAsync(CancellationToken token)
         {
-            foreach (var workerSetting in _workerSettings)
+            if (token.IsCancellationRequested)
             {
-                var workerPool = _workerPoolFacorty.CreateWorkerPool(workerSetting);
-                await workerPool.InitPoolAsync(token);
-                _workerPools.Add(workerPool);
+                return;
             }
 
-            _logger.LogInformation("WorkerPool initialization Finish!");
+            try
+            {
+                foreach (var workerSetting in _workerSettings)
+                {
+                    var workerPool = _workerPoolFacorty.CreateWorkerPool(workerSetting);
+                    await workerPool.InitPoolAsync(token);
+                    _workerPools.Add(workerPool);
+                }
+
+                _logger.LogInformation("WorkerPool initialization Finish!");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Initialization failed");
+                throw;
+            }
+
         }
 
         public override async Task StopAsync(CancellationToken cancellationToken)

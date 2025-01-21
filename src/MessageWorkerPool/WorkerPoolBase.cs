@@ -33,13 +33,12 @@ namespace MessageWorkerPool
 		/// </summary>
         protected readonly List<IWorker> Workers = new List<IWorker>();
         private bool _disposed = false;
-		
-		/// <summary>
-		/// Initializes a new instance of the <see cref="WorkerPoolBase"/> class.
-		/// </summary>
-		/// <param name="workerSetting">The configuration settings for the worker pool.</param>
-		/// <param name="loggerFactory">The logger factory used to create loggers for the pool and workers.</param>
-		/// <exception cref="ArgumentNullException">Thrown when <paramref name="workerSetting"/> is null.</exception>
+        /// <summary>
+        /// Initializes a new instance of the <see cref="WorkerPoolBase"/> class.
+        /// </summary>
+        /// <param name="workerSetting">The configuration settings for the worker pool.</param>
+        /// <param name="loggerFactory">The logger factory used to create loggers for the pool and workers.</param>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="workerSetting"/> is null.</exception>
         public WorkerPoolBase(WorkerPoolSetting workerSetting,ILoggerFactory loggerFactory)
         {
             if (workerSetting == null)
@@ -94,7 +93,6 @@ namespace MessageWorkerPool
             }
 
             Dispose();   
-            _isClosed = true;
         }
 
         public void Dispose()
@@ -120,6 +118,7 @@ namespace MessageWorkerPool
             }
 
             _disposed = true;
+            _isClosed = true;
         }
     }
 }

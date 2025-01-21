@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 
 namespace MessageWorkerPool
@@ -6,6 +7,7 @@ namespace MessageWorkerPool
     /// <summary>
     /// process wrapper, that provide more flexibility and we can do unit test
     /// </summary>
+    [ExcludeFromCodeCoverage]
     public class ProcessWrapper : IProcessWrapper
     {
         private readonly Process _process;
