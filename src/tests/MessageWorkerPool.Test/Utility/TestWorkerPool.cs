@@ -1,5 +1,7 @@
+using MessageWorkerPool.RabbitMq;
 using Microsoft.Extensions.Logging;
 using Moq;
+using RabbitMQ.Client;
 
 namespace MessageWorkerPool.Test.Utility
 {
@@ -17,6 +19,23 @@ namespace MessageWorkerPool.Test.Utility
 
         public void AddWorker(IWorker worker) {
             Workers.Add(worker);
+        }
+    }
+
+    public class TestableRabbitMqWorkerPool : RabbitMqWorkerPool
+    {
+        public TestableRabbitMqWorkerPool(
+            RabbitMqSetting rabbitMqSetting,
+            WorkerPoolSetting workerSetting,
+            IConnection connection,
+            ILoggerFactory loggerFactory)
+            : base(rabbitMqSetting, workerSetting, connection, loggerFactory)
+        {
+        }
+
+        public new IWorker GetWorker()
+        {
+            return base.GetWorker();
         }
     }
 }

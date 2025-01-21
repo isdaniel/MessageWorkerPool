@@ -4,7 +4,7 @@ using Moq;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
-using Microsoft.Extensions.Hosting;
+using MessageWorkerPool.Test.Utility;
 
 namespace MessageWorkerPool.Test
 {
@@ -29,6 +29,249 @@ namespace MessageWorkerPool.Test
             act.Should().Throw<ArgumentNullException>()
                 .WithMessage("*rabbitMqSetting*");
         }
+
+        [Fact]
+        public void Constructor_ShouldInitializeFields_WhenArgumentsAreValid()
+        {
+            // Arrange
+            var rabbitMqSetting = new RabbitMqSetting();
+
+            var workerSetting = new WorkerPoolSetting();
+
+            var connectionMock = new Mock<IConnection>();
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+
+            // Act
+            var workerPool = new RabbitMqWorkerPool(
+                rabbitMqSetting,
+                workerSetting,
+                connectionMock.Object,
+                loggerFactoryMock.Object
+            );
+
+            // Assert
+            workerPool.Should().NotBeNull();
+            workerPool.Connection.Should().Be(connectionMock.Object);
+        }
+
+        [Fact]
+        public void Constructor_ShouldThrowArgumentNullException_WhenRabbitMqSettingIsNull_FromAnotherConstructor()
+        {
+            // Arrange
+            RabbitMqSetting rabbitMqSetting = null;
+            var workerSetting = new WorkerPoolSetting();
+            var connectionMock = new Mock<IConnection>();
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+
+            // Act
+            Action act = () => new RabbitMqWorkerPool(
+                rabbitMqSetting,
+                workerSetting,
+                connectionMock.Object,
+                loggerFactoryMock.Object
+            );
+
+            // Assert
+            act.Should().Throw<ArgumentNullException>()
+                .WithMessage("Value cannot be null. (Parameter 'rabbitMqSetting')");
+        }
+
+        [Fact]
+        public void Constructor_ShouldNotThrow_WhenAllArgumentsAreValid()
+        {
+            // Arrange
+            var rabbitMqSetting = new RabbitMqSetting();
+
+            var workerSetting = new WorkerPoolSetting();
+
+            var connectionMock = new Mock<IConnection>();
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+
+            // Act
+            Action act = () => new RabbitMqWorkerPool(
+                rabbitMqSetting,
+                workerSetting,
+                connectionMock.Object,
+                loggerFactoryMock.Object
+            );
+
+            // Assert
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void Constructor_ShouldThrowArgumentNullException_WhenConnectionIsNull()
+        {
+            // Arrange
+            var rabbitMqSetting = new RabbitMqSetting();
+
+            var workerSetting = new WorkerPoolSetting();
+
+            IConnection connection = null;
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+
+            // Act
+            Action act = () => new RabbitMqWorkerPool(
+                rabbitMqSetting,
+                workerSetting,
+                connection,
+                loggerFactoryMock.Object
+            );
+
+            // Assert
+            act.Should().Throw<ArgumentNullException>()
+                .WithMessage("Value cannot be null. (Parameter 'connection')");
+        }
+
+
+
+
+        [Fact]
+        public void GetWorker_ShouldReturnRabbitMqWorker()
+        {
+            // Arrange
+            var rabbitMqSetting = new RabbitMqSetting();
+
+            var workerSetting = new WorkerPoolSetting();
+
+            var connectionMock = new Mock<IConnection>();
+            var channelMock = new Mock<IModel>();
+            connectionMock.Setup(c => c.CreateModel()).Returns(channelMock.Object);
+
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+
+            var workerPool = new TestableRabbitMqWorkerPool(
+                rabbitMqSetting,
+                workerSetting,
+                connectionMock.Object,
+                loggerFactoryMock.Object
+            );
+
+            // Act
+            var worker = workerPool.GetWorker();
+
+            // Assert
+            worker.Should().NotBeNull();
+            worker.Should().BeOfType<RabbitMqWorker>();
+        }
+
+        [Fact]
+        public void GetWorker_ShouldThrowException_WhenCreateModelFails()
+        {
+            // Arrange
+            var rabbitMqSetting = new RabbitMqSetting();
+
+            var workerSetting = new WorkerPoolSetting();
+
+            var connectionMock = new Mock<IConnection>();
+            connectionMock.Setup(c => c.CreateModel()).Throws(new InvalidOperationException("Channel creation failed"));
+
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+
+            var workerPool = new TestableRabbitMqWorkerPool(
+                rabbitMqSetting,
+                workerSetting,
+                connectionMock.Object,
+                loggerFactoryMock.Object
+            );
+
+            // Act & Assert
+            Assert.Throws<InvalidOperationException>(() => workerPool.GetWorker());
+            connectionMock.Verify(c => c.CreateModel(), Times.Once);
+        }
+
+        [Fact]
+        public void GetWorker_ShouldInitializeRabbitMqWorkerCorrectly()
+        {
+            // Arrange
+            var rabbitMqSetting = new RabbitMqSetting();
+
+            var workerSetting = new WorkerPoolSetting();
+
+            var connectionMock = new Mock<IConnection>();
+            var channelMock = new Mock<IModel>();
+            connectionMock.Setup(c => c.CreateModel()).Returns(channelMock.Object);
+
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+
+            var workerPool = new TestableRabbitMqWorkerPool(
+                rabbitMqSetting,
+                workerSetting,
+                connectionMock.Object,
+                loggerFactoryMock.Object
+            );
+
+            // Act
+            var worker = workerPool.GetWorker();
+
+            // Assert
+            worker.Should().NotBeNull();
+            worker.Should().BeOfType<RabbitMqWorker>();
+
+            var rabbitWorker = worker.As<RabbitMqWorker>();
+            rabbitWorker.Setting.Should().Be(rabbitMqSetting);
+            rabbitWorker.channel.Should().Be(channelMock.Object);
+        }
+
+        [Fact]
+        public void GetWorker_ShouldCallCreateModelOnConnection()
+        {
+            // Arrange
+            var rabbitMqSetting = new RabbitMqSetting();
+
+            var workerSetting = new WorkerPoolSetting();
+
+            var connectionMock = new Mock<IConnection>();
+            var channelMock = new Mock<IModel>();
+            connectionMock.Setup(c => c.CreateModel()).Returns(channelMock.Object);
+
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+
+            var workerPool = new TestableRabbitMqWorkerPool(
+                rabbitMqSetting,
+                workerSetting,
+                connectionMock.Object,
+                loggerFactoryMock.Object
+            );
+
+            // Act
+            workerPool.GetWorker();
+
+            // Assert
+            connectionMock.Verify(c => c.CreateModel(), Times.Once);
+        }
+
+        [Fact]
+        public void GetWorker_ShouldReturnNewInstanceOnEachCall()
+        {
+            // Arrange
+            var rabbitMqSetting = new RabbitMqSetting();
+
+            var workerSetting = new WorkerPoolSetting();
+
+            var connectionMock = new Mock<IConnection>();
+            var channelMock = new Mock<IModel>();
+            connectionMock.Setup(c => c.CreateModel()).Returns(channelMock.Object);
+
+            var loggerFactoryMock = new Mock<ILoggerFactory>();
+
+            var workerPool = new TestableRabbitMqWorkerPool(
+                rabbitMqSetting,
+                workerSetting,
+                connectionMock.Object,
+                loggerFactoryMock.Object
+            );
+
+            // Act
+            var worker1 = workerPool.GetWorker();
+            var worker2 = workerPool.GetWorker();
+
+            // Assert
+            worker1.Should().NotBeNull();
+            worker2.Should().NotBeNull();
+            worker1.Should().NotBeSameAs(worker2);
+        }
+
 
         [Fact]
         public void Constructor_ShouldThrowUriFormatException_AndLogError_WhenRabbitMqSettingHasInvalidUri()
