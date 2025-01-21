@@ -1,0 +1,41 @@
+name: Run tests and upload coverage
+on:
+  push
+
+jobs:
+  test:
+    name: Run tests and collect coverage
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 6.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore
+      working-directory: src/tests/MessageWorkerPool.Test
+
+    - name: Build project
+      run: dotnet build --no-restore
+      working-directory: src/tests/MessageWorkerPool.Test
+    - name: Test
+      run: dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+      working-directory: src/tests/MessageWorkerPool.Test
+
+    - name: Codecov
+      uses: codecov/codecov-action@v2
+      with:
+        file: coverage.opencover.xml
+        working-directory: src/tests/MessageWorkerPool.Test
+
+    - name: Upload results to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: isdaniel/MessageWorkerPool

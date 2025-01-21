@@ -11,7 +11,6 @@ using RabbitMQ.Client.Events;
 
 namespace MessageWorkerPool.Test
 {
-
     public class RabbitMqWorkerTest
     {
         private readonly Mock<ILoggerFactory> _loggerFactoryMock;

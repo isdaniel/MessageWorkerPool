@@ -48,7 +48,7 @@ namespace MessageWorkerPool.RabbitMq
         {
         }
 
-        private static IConnection CreateConnection(RabbitMqSetting rabbitMqSetting, ILoggerFactory loggerFactory)
+        internal static IConnection CreateConnection(RabbitMqSetting rabbitMqSetting, ILoggerFactory loggerFactory)
         {
             if (rabbitMqSetting == null)
             {
@@ -62,7 +62,7 @@ namespace MessageWorkerPool.RabbitMq
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to create RabbitMQ connection for host: {Host}", rabbitMqSetting?.HostName);
+                logger.LogError(ex, $"Failed to create RabbitMQ connection for host: {rabbitMqSetting?.HostName}");
                 throw;
             }
             
