@@ -5,6 +5,7 @@
 [![NuGet Downloads](https://img.shields.io/nuget/dt/MessageWorkerPool.svg)](https://www.nuget.org/packages/MessageWorkerPool/)
 [![Build Action](https://github.com/isdaniel/MessageWorkerPool/actions/workflows/dotnet_build.yml/badge.svg)](https://github.com/isdaniel/MessageWorkerPool/actions/workflows/dotnet_build.yml)
 [![Integration Test](https://github.com/isdaniel/MessageWorkerPool/actions/workflows/integration_test.yml/badge.svg)](https://github.com/isdaniel/MessageWorkerPool/actions/workflows/integration_test.yml)
+[![codecov](https://codecov.io/gh/isdaniel/MessageWorkerPool/graph/badge.svg?token=9N4NL80C67)](https://codecov.io/gh/isdaniel/MessageWorkerPool)
 
 ## Introduction
 
