@@ -110,6 +110,18 @@ The Protocol between worker and task process are use MessagePack binary format w
 
 ### Worker & worker pool protocol
 
+In the beginning, worker pool will pass NamedPipe name through standardInput, therefore worker program would need to receive that name and establish NamedPipe between worker process and worker pool.
+
+#### Operation command from worker pool
+
+Currently, worker pool will send operations signal or command to worker process via standardInput.
+
+* CLOSED_SIGNAL (value: `__quit__`): that represent worker pool sent a close or shutdown signal to worker process, that worker process should perform graceful shutdown as soon as possible.
+
+#### Data transfer via (Data Named Pipe Stream)
+
+Named pipes are a powerful interprocess communication (IPC) mechanism that allows two or more processes to communicate with each other, even if they are running on different machines in a network (on platforms that support it, like Windows), our workers used to this for trasfering data between worker process and worker pool
+
 [msgpack](https://msgpack.org/) protocols data type support as below class & `byte[]` format.
 
 The corresponding `byte[]` data is:
@@ -194,22 +206,32 @@ public class MessageInputTask
 }
 ```
 
+I would introduce `MessageStatus` meaning here.
 
-Currently, there are some status represnt `MessageStatus`
-
-* IGNORE_MESSAGE (-1) : Append the message to the standard output without further processing.
-  - `Status = -1` via Standard Output, task process tell worker this isn't a response nor ack message, only for record via Standard Output.
+* IGNORE_MESSAGE (-1) : Append the message to data steaming pipeline without further processing.
+  - `Status = -1`: task process tell worker this isn't a response nor ack message, only feedback to data steaming pipeline.
 
 * MESSAGE_DONE (200) : Notify the worker that this case can be acknowledged by the message queue service.
-  - `Status = 200` via Standard Output, task process tell worker the task can be acked that mean it was finished.
+  - `Status = 200` task process tell worker the task can be acked that mean it was finished.
 
 * MESSAGE_DONE_WITH_REPLY (201) : Please ensure we satisfied below steps for supporting RPC.
    1. The client side cdoe must provide `ReplyTo` information.
    2. task process will use the `Message` column in the JSON payload to reply with the queue information.
-   3. Here is an example: When `Status = 201` is sent via Standard Output, the task process instructs the worker to output the task's JSON Message, such as 1010, which must then be sent to the reply queue.
+   3. Here is an example: When `Status = 201` is sent via data steaming pipeline, the task process instructs the worker to output, such as `1010`, which must then be sent to the reply queue.
+
+Example `byte[]` data
+
+```
+[130, 161, 48, 179, 78, 101, 119, 32, 79, 117, 116, 80, 117, 116, 32, 77, 101, 115, 115, 97, 103, 101, 33, 161, 49, 204, 200]
+```
+
+Correspondence JSON from `byte[]`
 
 ```json
-{"Message":1010,"Status":201}
+{
+    "0": "New OutPut Message!",
+    "1": 200
+}
 ```
 
 We can write our own worker by different program language (I have provided python and .net sample in this repository).
