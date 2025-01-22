@@ -50,9 +50,9 @@ gradlew eol=lf
 #
 # image files are treated as binary by default.
 ###############################################################################
-#*.jpg   binary
-#*.png   binary
-#*.gif   binary
+*.jpg   binary
+*.png   binary
+*.gif   binary
 
 ###############################################################################
 # diff behavior for common document formats
@@ -71,19 +71,6 @@ gradlew eol=lf
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
-
-###############################################################################
-# Make sure jQuery files always have LF as line endings (to pass SRI checks)
-###############################################################################
-jquery*.js eol=lf
-jquery*.map eol=lf
-
-###############################################################################
-# Make sure bootstrap files always have LF as line endings (to pass SRI checks)
-###############################################################################
-bootstrap*.js eol=lf
-bootstrap*.map eol=lf
-bootstrap*.css eol=lf
-
 # VerifyTests
 *.verified.txt text eol=lf working-tree-encoding=UTF-8
+

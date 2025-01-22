@@ -29,9 +29,9 @@ services:
     networks:
       - net-mq
   workersample:
-    #build: ./examples/python_examples
-    #build: ./examples/dotnet_examples
-    build: ./examples/rust_examples
+    #build: ./examples_worker/python
+    #build: ./examples_worker/dotnet
+    build: ./examples_worker/rust
     #stop_grace_period: 120s
     env_file: ./env/.env
     depends_on:
