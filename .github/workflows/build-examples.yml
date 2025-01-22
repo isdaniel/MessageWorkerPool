@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04]
-        lang: [ dotnet_examples, python_examples, rust_examples]
+        lang: [ dotnet, python, rust]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -23,4 +23,4 @@ jobs:
 
     - name: Build
       run: dotnet build --configuration Release
-      working-directory: ./examples/${{ matrix.lang }}
+      working-directory: ./examples_worker/${{ matrix.lang }}
