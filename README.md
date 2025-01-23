@@ -108,17 +108,15 @@ public class Program
 
 The Protocol between worker and task process are use MessagePack binary format with faster and smaller data transfer, standardInput will send signal control worker process.
 
-### Worker & worker pool protocol
-
 In the beginning, worker pool will pass NamedPipe name through standardInput, therefore worker program would need to receive that name and establish NamedPipe between worker process and worker pool.
 
-#### Operation command from worker pool
+### Operation command from worker pool
 
 Currently, worker pool will send operations signal or command to worker process via standardInput.
 
-* CLOSED_SIGNAL (value: `__quit__`): that represent worker pool sent a close or shutdown signal to worker process, that worker process should perform graceful shutdown as soon as possible.
+* CLOSED_SIGNAL (`__quit__`): that represent worker pool sent a close or shutdown signal to worker process, that worker process should perform graceful shutdown as soon as possible.
 
-#### Data transfer via (Data Named Pipe Stream)
+### Data transfer via (Data Named Pipe Stream)
 
 Named pipes are a powerful interprocess communication (IPC) mechanism that allows two or more processes to communicate with each other, even if they are running on different machines in a network (on platforms that support it, like Windows), our workers used to this for trasfering data between worker process and worker pool
 
@@ -292,5 +290,4 @@ For example the `MessageOutputTask` JSON could look like below, `status=201` rep
    </a>
 </p>
 </details>
-
 ---
