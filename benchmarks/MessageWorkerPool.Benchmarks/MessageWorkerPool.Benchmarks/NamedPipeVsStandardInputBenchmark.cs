@@ -23,10 +23,10 @@ public class NamedPipeVsStandardInputBenchmark
 
         var serverTask = Task.Run(async () =>
         {
-            await _pipeServer.WaitForConnectionAsync();
+            await _pipeServer.WaitForConnectionAsync().ConfigureAwait(false);
         });
 
-        await _pipeClient.ConnectAsync();
+        await _pipeClient.ConnectAsync().ConfigureAwait(false);
         await serverTask;
         Console.WriteLine("Pipe connected..");
     }
@@ -53,8 +53,9 @@ public class NamedPipeVsStandardInputBenchmark
         {
             await WriteAsync(new TestModle()
             {
-                Message = $"Hello, BenchmarkDotNet! [{i}]"
-            });
+                Message = $"Hello, BenchmarkDotNet! [{i}]",
+                Value = i
+            }).ConfigureAwait(false);
         }
 
         await serverTask;
@@ -71,7 +72,7 @@ public class NamedPipeVsStandardInputBenchmark
         }
 
         var data = new byte[len];
-        await _pipeServer.ReadAsync(data, 0, len);        
+        await _pipeServer.ReadAsync(data, 0, len).ConfigureAwait(false);        
         return JsonSerializer.Deserialize<TModel>(data);
     }
 
@@ -90,11 +91,10 @@ public class NamedPipeVsStandardInputBenchmark
     private  async Task WriteAsync<TModel>(TModel obj)
           where TModel : class
     {
-        var data = JsonSerializer.Serialize(obj);
-        var buffer = Encoding.UTF8.GetBytes(data);
-        await WriteLengthAsync(buffer.Length);
-        await _pipeClient.WriteAsync(buffer, 0, buffer.Length);
-        await _pipeClient.FlushAsync();
+        var buffer = JsonSerializer.SerializeToUtf8Bytes(obj);
+        await WriteLengthAsync(buffer.Length).ConfigureAwait(false);
+        await _pipeClient.WriteAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+        await _pipeClient.FlushAsync().ConfigureAwait(false);
     }
 
     private async Task WriteLengthAsync(int len)
@@ -121,7 +121,8 @@ public class NamedPipeVsStandardInputBenchmark
         {
             await pipeServerStream.WriteAsync(new TestModle()
             {
-                Message = $"Hello, BenchmarkDotNet! [{i}]"
+                Message = $"Hello, BenchmarkDotNet! [{i}]",
+                Value = i
             }).ConfigureAwait(false);
         }
 
