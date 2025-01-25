@@ -8,7 +8,6 @@ using BenchmarkDotNet.Loggers;
 using BenchmarkDotNet.Order;
 public class Config : ManualConfig
 {
-    public const int Iterations = 5;
 
     public Config()
     {
@@ -27,14 +26,15 @@ public class Config : ManualConfig
         AddColumn(StatisticColumn.P67);
         AddColumn(StatisticColumn.P90);
         AddColumn(StatisticColumn.P95);
+        AddColumn(StatisticColumn.OperationsPerSecond);
         AddColumn(BaselineRatioColumn.RatioMean);
         AddColumnProvider(DefaultColumnProviders.Metrics);        
 
         AddJob(Job.ShortRun
                .WithLaunchCount(1)
                .WithWarmupCount(2)
-               .WithUnrollFactor(Iterations)
-               .WithIterationCount(3)
+               .WithInvocationCount(16)
+               .WithIterationCount(10)
         );
         Orderer = new DefaultOrderer(SummaryOrderPolicy.FastestToSlowest);
         Options |= ConfigOptions.JoinSummary;

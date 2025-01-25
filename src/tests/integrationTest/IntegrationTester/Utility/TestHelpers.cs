@@ -13,7 +13,7 @@ public static class TestHelpers
         IConnection connection;
         IModel channel;
 
-        var rabbitMqSetting = new RabbitMqSetting
+        var rabbitMqSetting = new MessageClientOptions
         {
             UserName = Environment.GetEnvironmentVariable("RABBITMQ_USERNAME") ?? "guest",
             Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
@@ -32,12 +32,12 @@ public static class TestHelpers
             try
             {
                 var message = Encoding.UTF8.GetString(e.Body.Span);
-                messageReceived.SetResult(action(message));
+                messageReceived.TrySetResult(action(message));
                 channel.BasicAck(e.DeliveryTag, false);
             }
             catch (Exception ex)
             {
-                messageReceived.SetException(ex);
+                messageReceived.TrySetException(ex);
             }
         };
 

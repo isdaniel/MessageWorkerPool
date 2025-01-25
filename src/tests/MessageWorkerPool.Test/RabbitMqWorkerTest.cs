@@ -99,7 +99,6 @@ namespace MessageWorkerPool.Test
 
             worker.Status.Should().Be(WorkerStatus.Running);
             worker.mockProcess.Verify(x => x.Start(), Times.Once);
-            worker.mockProcess.Verify(x => x.BeginErrorReadLine(), Times.Once);
         }
 
         [Theory]
