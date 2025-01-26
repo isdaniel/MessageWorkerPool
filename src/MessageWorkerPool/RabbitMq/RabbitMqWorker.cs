@@ -241,25 +241,24 @@ namespace MessageWorkerPool.RabbitMq
         /// <param name="taskOutput">Output task from the external process.</param>
         private void ReplyQueue(string replyQueueName, BasicDeliverEventArgs e, MessageOutputTask taskOutput)
         {
-            if (string.IsNullOrWhiteSpace(replyQueueName) && taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY)
+            if (!string.IsNullOrWhiteSpace(replyQueueName) && taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY)
             {
-                Logger.LogWarning($"Reply queue name is null or empty, but taskOutput status is {taskOutput.Status}.");
-                return;
-            }
-
-            if (taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY)
-            {
-                Logger.LogDebug($"Reply queue request: queue name = {replyQueueName}, reply message = {taskOutput.Message}");
+                Logger.LogDebug($"reply queue request reply queue name is {replyQueueName},replyMessage : {taskOutput.Message}");
 
                 var properties = e.BasicProperties;
                 properties.ContentEncoding = Encoding.UTF8.WebName;
                 properties.Headers = taskOutput.Headers;
 
+                //TODO! We could support let user fill queue or exchange name from worker protocol in future.
                 channel.BasicPublish(string.Empty, replyQueueName, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
             }
-            else
+            else if (taskOutput.Status != MessageStatus.MESSAGE_DONE_WITH_REPLY && !string.IsNullOrWhiteSpace(replyQueueName))
             {
-                Logger.LogWarning($"Reply queue name is set to {replyQueueName}, but taskOutput status is {taskOutput.Status}.");
+                Logger.LogWarning($"reply queue name was setup as {replyQueueName}, but taskOutput status is {taskOutput.Status}");
+            }
+            else if (taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY && string.IsNullOrWhiteSpace(replyQueueName))
+            {
+                Logger.LogWarning($"reply queue name is null or empty, but taskOutput status is {taskOutput.Status}");
             }
         }
 
