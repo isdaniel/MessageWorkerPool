@@ -89,9 +89,6 @@ namespace MessageWorkerPool.RabbitMq
             this.channel = channel;
         }
 
-        /// <summary>
-        /// Starts the external process and begins reading from its error output stream.
-        /// </summary>
         protected virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo)
         {
 
@@ -99,15 +96,6 @@ namespace MessageWorkerPool.RabbitMq
             {
                 StartInfo = processStartInfo
             });
-
-            process.BeginErrorReadLine();
-            process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
-            {
-                if (!string.IsNullOrWhiteSpace(e.Data))
-                {
-                    Logger.LogError($"Procees Error Information:{e.Data}");
-                }
-            };
 
             return process;
         }
@@ -184,9 +172,21 @@ namespace MessageWorkerPool.RabbitMq
             return new PipeStreamWrapper(_workerOperationPipe);
         }
 
+        /// <summary>
+        /// Starts the external process and begins reading from its error output stream.
+        /// </summary>
         private void StartProcess()
         {
             Process.Start();
+            Process.BeginErrorReadLine();
+            Process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
+            {
+                if (!string.IsNullOrWhiteSpace(e.Data))
+                {
+                    Logger.LogError($"Procees Error Information:{e.Data}");
+                }
+            };
+
             _status = WorkerStatus.Running;
         }
 
