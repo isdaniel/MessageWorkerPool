@@ -21,9 +21,11 @@ services:
       - net-mq
   envpreparatory:
     build: ./message_client
-    env_file: ./env/.env
+    env_file: ./rabbitmq/env/.env
     depends_on:
       myrabbitmq:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - net-mq
@@ -32,7 +34,7 @@ services:
       context: ../../
       dockerfile: ./tests/integrationTest/trade_worker/Dockerfile
     stop_grace_period: 300s
-    env_file: ./env/.env
+    env_file: ./rabbitmq/env/.env
     depends_on:
       - envpreparatory
     networks:
@@ -48,6 +50,11 @@ services:
     environment:
       POSTGRES_PASSWORD: 'test.123'
       POSTGRES_USER: 'postgres'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
 networks:
   net-mq:
     driver: bridge

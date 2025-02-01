@@ -2,6 +2,7 @@ using FluentAssertions;
 using MessageWorkerPool.RabbitMq;
 using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 using Moq;
 using RabbitMQ.Client;
 
@@ -156,6 +157,48 @@ namespace MessageWorkerPool.Test
 
             // Act & Assert
             Assert.Throws<NotSupportedException>(() => workerPoolFactory.CreateWorkerPool(poolSetting));
+        }
+
+        [Fact]
+        public void RegisterGeneric_ShouldRegisterNewWorkerPool()
+        {
+            var _mockLoggerFactory = new Mock<ILoggerFactory>();
+            var poolSetting = new WorkerPoolSetting();
+            var customMqSetting = new CustomMqSetting<string>();
+            var factory = new WorkerPoolFactory(customMqSetting, _mockLoggerFactory.Object);
+            factory.RegisterGeneric<CustomMqSetting<string>, CustomWorkerPool<string>>();
+
+            var workerPool = factory.CreateWorkerPool(poolSetting);
+            workerPool.Should().NotBeNull();
+            workerPool.Should().BeOfType<CustomWorkerPool<string>>();
+        }
+    }
+
+    class CustomMqSetting<TKey> : MqSettingBase
+    {
+        public override string GetConnectionString()
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    class CustomWorkerPool<TKey> : IWorkerPool
+    {
+        public CustomWorkerPool(CustomMqSetting<TKey> setting, WorkerPoolSetting poolSetting, ILoggerFactory loggerFactory) { }
+
+        public void Dispose()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task InitPoolAsync(CancellationToken token)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task WaitFinishedAsync(CancellationToken token)
+        {
+            throw new NotImplementedException();
         }
     }
 }

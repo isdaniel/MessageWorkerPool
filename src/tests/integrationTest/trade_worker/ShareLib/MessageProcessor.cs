@@ -1,5 +1,6 @@
 using System;
 using System.IO.Pipes;
+using System.Numerics;
 using System.Threading.Tasks;
 using MessageWorkerPool.IO;
 using MessageWorkerPool.Utilities;
@@ -68,11 +69,11 @@ namespace ShareLib
             await _task;
         }
 
-        int ParseTimeout(IDictionary<string, object> headers)
+        int ParseTimeout(IDictionary<string, string> headers)
         {
             if (headers != null &&
                 headers.TryGetValue("TimeoutMilliseconds", out var timeout) &&
-                timeout is int timeoutValue)
+                int.TryParse(timeout, out int timeoutValue))
             {
                 return timeoutValue;
             }

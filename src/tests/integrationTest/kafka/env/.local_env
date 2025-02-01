@@ -1,0 +1,2 @@
+KAFKA_HOSTNAME=127.0.0.1:9092
+DBConnection="Host=127.0.0.1;Port=9999;Username=postgres;Password=test.123;Database=postgres;"

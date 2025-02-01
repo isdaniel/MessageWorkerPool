@@ -4,7 +4,6 @@ using RabbitMQ.Client;
 
 namespace MessageWorkerPool.RabbitMq
 {
-
     public class RabbitMqSetting : MqSettingBase
     {
         /// <summary>
