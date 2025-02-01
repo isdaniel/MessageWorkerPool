@@ -31,6 +31,6 @@ namespace MessageWorkerPool.Utilities
         /// </summary>
         [Key("3")]
         [MessagePackFormatter(typeof(PrimitiveObjectResolver))]
-        public IDictionary<string, object> Headers { get; set; }
+        public IDictionary<string, string> Headers { get; set; }
     }
 }

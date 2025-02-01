@@ -22,7 +22,7 @@ namespace MessageWorkerPool.Utilities
         /// </summary>
         [Key("2")]
         [MessagePackFormatter(typeof(PrimitiveObjectResolver))]
-        public IDictionary<string, object> Headers { get; set; }
+        public IDictionary<string, string> Headers { get; set; }
         /// <summary>
         /// Default use BasicProperties.Reply To queue name, task processor can overwrite reply queue name.
         /// </summary>

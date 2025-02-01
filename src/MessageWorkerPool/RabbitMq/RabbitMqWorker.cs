@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -10,8 +8,10 @@ using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.IO.Pipes;
-using MessageWorkerPool.IO;
+using System.Threading.Channels;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using MessageWorkerPool.Extensions;
 
 /// <summary>
 /// Represents a worker that processes messages from a RabbitMQ queue.
@@ -19,48 +19,22 @@ using MessageWorkerPool.IO;
 /// </summary>
 namespace MessageWorkerPool.RabbitMq
 {
-
     /// <summary>
     /// worker base to handle infrastructure and connection matter, export an Execute method let subclass implement their logic
     /// </summary>
-    public class RabbitMqWorker : IWorker
+    public class RabbitMqWorker : WorkerBase 
     {
         public RabbitMqSetting Setting { get; }
         protected AsyncEventHandler<BasicDeliverEventArgs> ReceiveEvent;
         private AsyncEventingBasicConsumer _consumer;
         int _messageCount = 0;
         internal IModel channel { get; private set; }
-        protected IProcessWrapper Process { get; private set; }
-        private readonly WorkerPoolSetting _workerSetting;
-        private readonly ILoggerFactory _loggerFactory;
-        private readonly HashSet<WorkerStatus> _stoppingStatus = new HashSet<WorkerStatus>(){
-            WorkerStatus.Stopped,
-            WorkerStatus.Stopping
-        };
-
-        //Message Finish Statuss
-        private readonly HashSet<MessageStatus> _messageDoneMap = new HashSet<MessageStatus>(){
-            MessageStatus.MESSAGE_DONE,
-            MessageStatus.MESSAGE_DONE_WITH_REPLY
-        };
 
         internal ConcurrentBag<ulong> RejectMessageDeliveryTags { get; private set; } = new ConcurrentBag<ulong>();
 
-        protected AutoResetEvent _receivedWaitEvent = new AutoResetEvent(false);
-
-        /// <summary>
-        /// Worker status
-        /// </summary>
-        private volatile WorkerStatus _status = WorkerStatus.WaitForInit;
-        public WorkerStatus Status
-        {
-            get { return _status; }
-        }
         protected ILogger<RabbitMqWorker> Logger { get; }
 
         private bool _disposed = false;
-
-        private PipeStreamWrapper _pipeDataStream;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RabbitMqWorker"/> class.
@@ -74,7 +48,7 @@ namespace MessageWorkerPool.RabbitMq
             RabbitMqSetting setting,
             WorkerPoolSetting workerSetting,
             IModel channel,
-            ILoggerFactory loggerFactory)
+            ILogger<RabbitMqWorker> logger) : base(workerSetting, logger)
         {
             if (workerSetting == null)
                 throw new ArgumentNullException(nameof(workerSetting));
@@ -82,112 +56,9 @@ namespace MessageWorkerPool.RabbitMq
             if (setting == null)
                 throw new ArgumentNullException(nameof(setting));
 
-            _loggerFactory = loggerFactory;
-            Logger = _loggerFactory.CreateLogger<RabbitMqWorker>();
             Setting = setting;
-            _workerSetting = workerSetting;
             this.channel = channel;
-        }
-
-        protected virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo)
-        {
-
-            IProcessWrapper process = new ProcessWrapper(new Process
-            {
-                StartInfo = processStartInfo
-            });
-
-            return process;
-        }
-
-        /// <summary>
-        /// Initializes the worker, setting up the external process and RabbitMQ consumer.
-        /// </summary>
-        /// <param name="token">Cancellation token for stopping the initialization.</param>
-        public virtual async Task InitWorkerAsync(CancellationToken token)
-        {
-            _consumer = new AsyncEventingBasicConsumer(channel);
-            Process = CreateProcess(new ProcessStartInfo()
-            {
-                RedirectStandardInput = true,
-                RedirectStandardOutput = false,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                FileName = _workerSetting.CommandLine,
-                Arguments = _workerSetting.Arguments,
-                CreateNoWindow = true,
-                StandardErrorEncoding = Encoding.UTF8
-            });
-            StartProcess();
-
-            using (Logger.BeginScope($"[Pid: {Process.Id}]"))
-            {
-
-                Logger.LogInformation($"Setup Process!");
-                string pipeName = $"pipeDataStream_{Guid.NewGuid().ToString("N")}";
-                var creatiepipeTask = CreateOperationPipeAsync(pipeName).ConfigureAwait(false);
-                await SendingDataToWorker(pipeName).ConfigureAwait(false);
-                Logger.LogInformation($"data pipe create successfully: {pipeName}");
-                //must wait after sent pipeName to woker-process
-                _pipeDataStream = await creatiepipeTask;
-                ReceiveEvent = async (sender, e) =>
-                {
-                    var correlationId = e.BasicProperties.CorrelationId;
-
-                    using (Logger.BeginScope($"[Pid: {Process.Id}][CorrelationId: {correlationId}]"))
-                    {
-                        if (_stoppingStatus.Contains(_status) || token.IsCancellationRequested)
-                        {
-                            Logger.LogWarning($"doing GracefulShutDown reject message!");
-                            //it should return, if the worker are processing GracefulShutDown.
-                            RejectMessageDeliveryTags.Add(e.DeliveryTag);
-                            return;
-                        }
-                        Interlocked.Increment(ref _messageCount);
-                        await ProcessingMessage(e, correlationId, token).ConfigureAwait(false);
-                        Interlocked.Decrement(ref _messageCount);
-                        _receivedWaitEvent.Set();
-                    }
-                };
-                _consumer.Received += ReceiveEvent;
-                channel.BasicQos(0, Setting.PrefetchTaskCount, false);
-                channel.BasicConsume(_workerSetting.QueueName, false, _consumer);
-                Logger.LogInformation($"Starting.. Channel ChannelNumber {channel.ChannelNumber}");
-            }
-
-            await Task.CompletedTask;
-        }
-
-        private async Task SendingDataToWorker(string command)
-        {
-            await Process.StandardInput.WriteLineAsync(command).ConfigureAwait(false);
-            await Process.StandardInput.FlushAsync().ConfigureAwait(false);
-        }
-
-        internal async virtual Task<PipeStreamWrapper> CreateOperationPipeAsync(string pipeName)
-        {
-            var _workerOperationPipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
-               PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.WriteThrough, 0, 0);
-            await _workerOperationPipe.WaitForConnectionAsync().ConfigureAwait(false);
-            return new PipeStreamWrapper(_workerOperationPipe);
-        }
-
-        /// <summary>
-        /// Starts the external process and begins reading from its error output stream.
-        /// </summary>
-        private void StartProcess()
-        {
-            Process.Start();
-            Process.BeginErrorReadLine();
-            Process.ErrorDataReceived += (object sender, DataReceivedEventArgs e) =>
-            {
-                if (!string.IsNullOrWhiteSpace(e.Data))
-                {
-                    Logger.LogError($"Procees Error Information:{e.Data}");
-                }
-            };
-
-            _status = WorkerStatus.Running;
+            this.Logger = logger;
         }
 
         /// <summary>
@@ -208,10 +79,10 @@ namespace MessageWorkerPool.RabbitMq
                 {
                     Message = message,
                     CorrelationId = correlationId,
-                    Headers = e.BasicProperties.Headers,
+                    Headers = e.BasicProperties.Headers.ConvertToStringMap(),
                     OriginalQueueName = _workerSetting.QueueName,
                 };
-                await _pipeDataStream.WriteAsync(task).ConfigureAwait(false);
+                await DataStreamWriteAsync(task);
 
                 var taskOutput = await ReadAndProcessOutputAsync(token);
 
@@ -219,8 +90,15 @@ namespace MessageWorkerPool.RabbitMq
                 {
                     AcknowledgeMessage(e.DeliveryTag);
                     string replyQueue = !string.IsNullOrWhiteSpace(taskOutput.ReplyQueueName) ? taskOutput.ReplyQueueName : e.BasicProperties.ReplyTo;
-                    //push to another queue
-                    ReplyQueue(replyQueue, e, taskOutput);
+
+                    ReplyQueue(replyQueue, taskOutput, () => {
+                        var properties = e.BasicProperties;
+                        properties.ContentEncoding = Encoding.UTF8.WebName;
+                        properties.Headers = taskOutput.Headers.ConvertToObjectMap();
+
+                        //TODO! We could support let user fill queue or exchange name from worker protocol in future.
+                        channel.BasicPublish(string.Empty, replyQueue, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
+                    });
                 }
                 else
                 {
@@ -231,34 +109,6 @@ namespace MessageWorkerPool.RabbitMq
             {
                 RejectMessage(e.DeliveryTag);
                 Logger.LogWarning(ex, "Processing message encountered an exception!");
-            }
-        }
-
-        /// <summary>
-        /// Sends a reply message to a queue specified in the original message's reply-to property.
-        /// </summary>
-        /// <param name="e">Delivery event arguments containing the message details.</param>
-        /// <param name="taskOutput">Output task from the external process.</param>
-        private void ReplyQueue(string replyQueueName, BasicDeliverEventArgs e, MessageOutputTask taskOutput)
-        {
-            if (!string.IsNullOrWhiteSpace(replyQueueName) && taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY)
-            {
-                Logger.LogDebug($"reply queue request reply queue name is {replyQueueName},replyMessage : {taskOutput.Message}");
-
-                var properties = e.BasicProperties;
-                properties.ContentEncoding = Encoding.UTF8.WebName;
-                properties.Headers = taskOutput.Headers;
-
-                //TODO! We could support let user fill queue or exchange name from worker protocol in future.
-                channel.BasicPublish(string.Empty, replyQueueName, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
-            }
-            else if (taskOutput.Status != MessageStatus.MESSAGE_DONE_WITH_REPLY && !string.IsNullOrWhiteSpace(replyQueueName))
-            {
-                Logger.LogWarning($"reply queue name was setup as {replyQueueName}, but taskOutput status is {taskOutput.Status}");
-            }
-            else if (taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY && string.IsNullOrWhiteSpace(replyQueueName))
-            {
-                Logger.LogWarning($"reply queue name is null or empty, but taskOutput status is {taskOutput.Status}");
             }
         }
 
@@ -278,7 +128,7 @@ namespace MessageWorkerPool.RabbitMq
             {
                 try
                 {
-                    taskOutput = await _pipeDataStream.ReadAsync<MessageOutputTask>().ConfigureAwait(false);
+                    taskOutput = await DataStreamReadAsync<MessageOutputTask>();
                 }
                 catch (JsonException ex)
                 {
@@ -315,45 +165,26 @@ namespace MessageWorkerPool.RabbitMq
         /// provide hock for sub-class implement
         /// </summary>
         /// <returns></returns>
-        protected virtual async Task GracefulReleaseAsync(CancellationToken token)
+        protected override async Task GracefulReleaseAsync(CancellationToken token)
         {
-            await Task.CompletedTask;
-        }
-
-        /// <summary>
-        /// Gracefully shuts down the worker, ensuring all in-flight messages are processed or rejected.
-        /// </summary>
-        /// <param name="token">Cancellation token for stopping the shutdown process.</param>
-        public async Task GracefulShutDownAsync(CancellationToken token)
-        {
-            using (Logger.BeginScope($"[Pid: {Process.Id}]"))
+            while (Interlocked.CompareExchange(ref _messageCount, 0, 0) != 0)
             {
-                Logger.LogInformation("Executing GracefulShutDownAsync!");
-                _status = WorkerStatus.Stopping;
-
-                while (Interlocked.CompareExchange(ref _messageCount, 0, 0) != 0)
-                {
-                    Logger.LogInformation($"Waiting for all messages to be processed. Current messageCount: {_messageCount}");
-                    _receivedWaitEvent.WaitOne();
-                }
-
-                //reject all messages from this Channel.
-                RejectRemainingMessages();
-
-                if (ReceiveEvent != null)
-                {
-                    _consumer.Received -= ReceiveEvent;
-                    ReceiveEvent = null;
-                }
-                
-                await CloseProcess();
-                _status = WorkerStatus.Stopped;
-                await GracefulReleaseAsync(token);
+                Logger.LogInformation($"Waiting for all messages to be processed. Current messageCount: {_messageCount}");
+                _receivedWaitEvent.WaitOne();
             }
 
-            this.Dispose();
+            //reject all messages from this Channel.
+            RejectRemainingMessages();
+
+            if (ReceiveEvent != null)
+            {
+                _consumer.Received -= ReceiveEvent;
+                ReceiveEvent = null;
+            }
+
             Logger.LogInformation("RabbitMQ Conn Closed!!!!");
         }
+        
 
         private void RejectRemainingMessages()
         {
@@ -366,34 +197,11 @@ namespace MessageWorkerPool.RabbitMq
             Logger.LogInformation("Rejected all remaining messages in the queue...");
         }
 
-        private async Task CloseProcess()
-        {
-            //Sending close message
-            Logger.LogInformation($"Begin WaitForExit free resource....");
-            await SendingDataToWorker(MessageCommunicate.CLOSED_SIGNAL);
-            _pipeDataStream.Dispose();
-            //to avoid some worker block in Console.ReadLine lead to program can't get down successfully
-            while (!Process.WaitForExit(3000))
-            {
-                Logger.LogInformation("Process.WaitForExit.....");
-            }
-            Logger.LogInformation($"End WaitForExit and free resource....");
-        }
-
-        /// <summary>
-        /// Disposes managed and unmanaged resources used by the RabbitMqWorker.
-        /// </summary>
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
         /// <summary>
         /// Protected implementation of Dispose pattern.
         /// </summary>
         /// <param name="disposing">Indicates whether to release managed resources.</param>
-        protected virtual void Dispose(bool disposing)
+        protected override void Dispose(bool disposing)
         {
             if (_disposed)
             {
@@ -402,14 +210,6 @@ namespace MessageWorkerPool.RabbitMq
 
             if (disposing)
             {
-                // Dispose managed resources
-                if (Process != null)
-                {
-                    Process.Close();
-                    Process.Dispose();
-                    Process = null;
-                }
-
                 if (channel != null)
                 {
                     try
@@ -429,24 +229,38 @@ namespace MessageWorkerPool.RabbitMq
                         channel = null;
                     }
                 }
-
-                if (_pipeDataStream != null)
-                {
-                    _pipeDataStream.Dispose();
-                    _pipeDataStream = null;
-                }
-
-                if (_receivedWaitEvent != null)
-                {
-                    _receivedWaitEvent.Dispose();
-                    _receivedWaitEvent = null;
-                }
-
             }
 
-            // Release unmanaged resources here if any
-
             _disposed = true;
+            base.Dispose(disposing);
+        }
+
+        protected override void SetupMessageQueueSetting(CancellationToken token)
+        {
+            _consumer = new AsyncEventingBasicConsumer(channel);
+            ReceiveEvent = async (sender, e) =>
+            {
+                var correlationId = e.BasicProperties.CorrelationId;
+
+                using (Logger.BeginScope($"[Pid: {Process.Id}][CorrelationId: {correlationId}]"))
+                {
+                    if (_stoppingStatus.Contains(this.Status) || token.IsCancellationRequested)
+                    {
+                        Logger.LogWarning($"doing GracefulShutDown reject message!");
+                        //it should return, if the worker are processing GracefulShutDown.
+                        RejectMessageDeliveryTags.Add(e.DeliveryTag);
+                        return;
+                    }
+                    Interlocked.Increment(ref _messageCount);
+                    await ProcessingMessage(e, correlationId, token).ConfigureAwait(false);
+                    Interlocked.Decrement(ref _messageCount);
+                    _receivedWaitEvent.Set();
+                }
+            };
+            _consumer.Received += ReceiveEvent;
+            channel.BasicQos(0, Setting.PrefetchTaskCount, false);
+            channel.BasicConsume(_workerSetting.QueueName, false, _consumer);
+            Logger.LogInformation($"Starting.. Channel ChannelNumber {channel.ChannelNumber}");
         }
     }
 }

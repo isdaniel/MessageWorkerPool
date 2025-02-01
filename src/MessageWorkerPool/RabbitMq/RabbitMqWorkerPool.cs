@@ -71,7 +71,8 @@ namespace MessageWorkerPool.RabbitMq
         protected override IWorker GetWorker()
         {
             var channel = _connection.CreateModel();
-            return new RabbitMqWorker(_rabbitMqSetting, _workerSetting, channel, _loggerFactory);
+            var logger = _loggerFactory.CreateLogger<RabbitMqWorker>();
+            return new RabbitMqWorker(_rabbitMqSetting, _workerSetting, channel, logger);
         }
 
         protected override void Dispose(bool disposing)

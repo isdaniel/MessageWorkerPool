@@ -45,15 +45,23 @@ namespace MessageWorkerPool
         {
             _mqSetting = mqSetting ?? throw new ArgumentNullException(nameof(mqSetting));
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
-
-            _registry = new Dictionary<Type, Func<MqSettingBase, WorkerPoolSetting, ILoggerFactory, IWorkerPool>>
-            {
-                { typeof(RabbitMqSetting), (mq, pool, logger) => new RabbitMqWorkerPool((RabbitMqSetting)mq, pool, logger) }
-                // Add other message queue implementations here.
-            };
+            _registry = new Dictionary<Type, Func<MqSettingBase, WorkerPoolSetting, ILoggerFactory, IWorkerPool>>();
+            RegisterGeneric<RabbitMqSetting, RabbitMqWorkerPool>();
         }
-		
-		/// <summary>
+
+
+        /// <summary>
+        /// Registers a worker pool factory for a generic message queue type.
+        /// </summary>
+        public void RegisterGeneric<TMqSetting, TWorkerPool>()
+            where TMqSetting : MqSettingBase
+            where TWorkerPool : IWorkerPool
+        {
+            _registry[typeof(TMqSetting)] = (mq, pool, logger) =>
+                (IWorkerPool)Activator.CreateInstance(typeof(TWorkerPool), mq, pool, logger);
+        }
+
+        /// <summary>
         /// Creates a worker pool based on the current message queue settings and provided pool settings.
         /// </summary>
         /// <param name="poolSetting">The settings used to configure the worker pool.</param>
@@ -63,9 +71,20 @@ namespace MessageWorkerPool
         /// </exception>
         public IWorkerPool CreateWorkerPool(WorkerPoolSetting poolSetting)
         {
-            if (_registry.TryGetValue(_mqSetting.GetType(), out var factoryFunc))
+            Type settingType = _mqSetting.GetType();
+
+            if (_registry.TryGetValue(settingType, out var factoryFunc))
             {
                 return factoryFunc(_mqSetting, poolSetting, _loggerFactory);
+            }
+
+            if (settingType.IsGenericType)
+            {
+                Type genericDefinition = settingType.GetGenericTypeDefinition();
+                if (_registry.TryGetValue(genericDefinition, out var genericFactory))
+                {
+                    return genericFactory(_mqSetting, poolSetting, _loggerFactory);
+                }
             }
 
             throw new NotSupportedException($"No worker pool factory registered for type {_mqSetting.GetType().Name}");

@@ -74,8 +74,6 @@ namespace MessageWorkerPool
                 await worker.InitWorkerAsync(token);
                 Workers.Add(worker);
             }
-
-            await Task.CompletedTask;
         }
 
 

@@ -1,0 +1,89 @@
+version: '3.8'
+services:
+  envpreparatory:
+    build: ./message_client
+    env_file: ./kafka/env/.env
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - net-mq
+  tradeworker:
+    build:
+      context: ../../
+      dockerfile: ./tests/integrationTest/trade_worker/Dockerfile
+    stop_grace_period: 300s
+    env_file: ./kafka/env/.env
+    depends_on:
+      - envpreparatory
+    networks:
+      - net-mq
+  postgres:
+    image: postgres:16
+    hostname: postgres-server
+    ports:
+      - "9999:5432"
+    restart: always
+    networks:
+      - net-mq
+    environment:
+      POSTGRES_PASSWORD: 'test.123'
+      POSTGRES_USER: 'postgres'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+  zookeeper:
+    container_name: zookeeper
+    hostname: zookeeper
+    image: confluentinc/cp-zookeeper:7.8.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: echo ruok | nc localhost 2181 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "2181:2181"
+    networks:
+      - net-mq
+  kafka1:
+    container_name: kafka1
+    hostname: kafka1
+    image: confluentinc/cp-kafka:7.8.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    restart: always
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+    networks:
+      - net-mq
+networks:
+  net-mq:
+    driver: bridge
+
+
+
+
