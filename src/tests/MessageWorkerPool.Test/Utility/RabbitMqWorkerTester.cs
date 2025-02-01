@@ -15,10 +15,12 @@ namespace MessageWorkerPool.Test.Utility
             RabbitMqSetting setting,
             WorkerPoolSetting workerSetting,
             IModel channel,
-            ILoggerFactory loggerFactory) : base(setting, workerSetting, channel, loggerFactory)
+            ILogger<RabbitMqWorker> logger) : base(setting, workerSetting, channel, logger)
         {
 
         }
+
+        internal bool GracefulReleaseCalled;
 
         internal Mock<IProcessWrapper> mockProcess { get; set; }
         internal Mock<StreamWriter> mockStandardInput { get; set; }
@@ -44,10 +46,20 @@ namespace MessageWorkerPool.Test.Utility
             return mockProcess.Object;
         }
 
-        internal override Task<PipeStreamWrapper> CreateOperationPipeAsync(string pipeName)
+        protected override Task<PipeStreamWrapper> CreateOperationPipeAsync(string pipeName)
         {
             pipeStream = new Mock<PipeStreamWrapper>(null);
             return Task.FromResult(pipeStream.Object);
+        }
+
+        protected override async Task GracefulReleaseAsync(CancellationToken token)
+        {
+            GracefulReleaseCalled = true; // Mark as executed
+            await base.GracefulReleaseAsync(token).ConfigureAwait(false);
+        }
+        public async Task<PipeStreamWrapper> TestCreateOperationPipeAsync(string pipeName)
+        {
+            return await CreateOperationPipeAsync(pipeName);
         }
     }
 }

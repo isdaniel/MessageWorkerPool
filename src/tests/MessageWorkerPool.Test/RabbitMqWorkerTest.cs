@@ -1,6 +1,8 @@
+using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
+using MessageWorkerPool.IO;
 using MessageWorkerPool.RabbitMq;
 using MessageWorkerPool.Test.Utility;
 using MessageWorkerPool.Utilities;
@@ -8,29 +10,29 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using MessageWorkerPool.Extensions;
 
 namespace MessageWorkerPool.Test
 {
     public class RabbitMqWorkerTest
     {
-        private readonly Mock<ILoggerFactory> _loggerFactoryMock;
         private readonly Mock<ILogger<RabbitMqWorker>> _loggerMock;
         private readonly Mock<IModel> _channel;
         private readonly Mock<IBasicProperties> _basicProp;
+        private readonly Mock<ILogger> _logger;
 
         public RabbitMqWorkerTest()
         {
-            _loggerFactoryMock = new Mock<ILoggerFactory>();
             _loggerMock = new Mock<ILogger<RabbitMqWorker>>();
+            _logger = new Mock<ILogger>();
             _channel = new Mock<IModel>();
             _basicProp = new Mock<IBasicProperties>();
-            _loggerFactoryMock.Setup(lf => lf.CreateLogger(It.IsAny<string>())).Returns(_loggerMock.Object);
             _channel.Setup(x => x.CreateBasicProperties()).Returns(_basicProp.Object);
         }
 
         private RabbitMqWorkerTester CreateWorker(RabbitMqSetting setting, WorkerPoolSetting workerSetting)
         {
-            return new RabbitMqWorkerTester(setting, workerSetting, _channel.Object, _loggerFactoryMock.Object);
+            return new RabbitMqWorkerTester(setting, workerSetting, _channel.Object, _loggerMock.Object);
         }
 
         private BasicDeliverEventArgs CreateBasicDeliverEventArgs(string message, string correlationId, ulong deliveryTag = 123, string replyQueueName = null, IDictionary<string, object> header = null)
@@ -185,12 +187,13 @@ namespace MessageWorkerPool.Test
                               null,
                               It.IsAny<Func<It.IsAnyType, Exception, string>>()),
                               Times.Once);
+            worker.GracefulReleaseCalled.Should().BeTrue();
         }
 
         [Theory]
         [InlineData("This is Test Message",
             "test-correlation-id",
-            "{\r\n  \"Message\": \"This is Mock Json Data\",\r\n  \"Status\": 201,\r\n  \"Headers\": {\r\n    \"CreateTimestamp\": \"2025-01-01T14:35:00Z\",\r\n    \"PreviousProcessingTimestamp\": \"2025-01-01T14:40:00Z\",\r\n\t\"Source\": \"OrderProcessingService\",\r\n    \"PreviousExecutedRows\": 123,\r\n    \"RequeueTimes\": 3\r\n  }\r\n}",
+            "{\r\n  \"Message\": \"This is Mock Json Data\",\r\n  \"Status\": 201,\r\n  \"Headers\": {\r\n    \"CreateTimestamp\": \"2025-01-01T14:35:00Z\",\r\n    \"PreviousProcessingTimestamp\": \"2025-01-01T14:40:00Z\",\r\n\t\"Source\": \"OrderProcessingService\",\r\n    \"PreviousExecutedRows\": \"123\",\r\n    \"RequeueTimes\": \"3\"\r\n  }\r\n}",
             true,  //expectAck
             false, //expectNack
             true,  //expectRequeue
@@ -198,7 +201,7 @@ namespace MessageWorkerPool.Test
             "replyQueue")]
         [InlineData("This is Test Message",
             "test-correlation-id",
-            "{\r\n  \"Message\": \"This is Mock Json Data\",\r\n  \"Status\": 201,\r\n  \"Headers\": {\r\n    \"CreateTimestamp\": \"2025-01-01T14:35:00Z\",\r\n    \"PreviousProcessingTimestamp\": \"2025-01-01T14:40:00Z\",\r\n\t\"Source\": \"OrderProcessingService\",\r\n    \"PreviousExecutedRows\": 123,\r\n    \"RequeueTimes\": 3\r\n  }\r\n}",
+            "{\r\n  \"Message\": \"This is Mock Json Data\",\r\n  \"Status\": 201,\r\n  \"Headers\": {\r\n    \"CreateTimestamp\": \"2025-01-01T14:35:00Z\",\r\n    \"PreviousProcessingTimestamp\": \"2025-01-01T14:40:00Z\",\r\n\t\"Source\": \"OrderProcessingService\",\r\n    \"PreviousExecutedRows\": \"123\",\r\n    \"RequeueTimes\":  \"3\"\r\n  }\r\n}",
             true,  //expectAck
             false, //expectNack
             false, //expectRequeue
@@ -206,7 +209,7 @@ namespace MessageWorkerPool.Test
             null)]
         [InlineData("This is Test Message",
             "test-correlation-id",
-            "{\r\n  \"Message\": \"This is Mock Json Data\",\r\n  \"Status\": 200,\r\n  \"Headers\": {\r\n    \"CreateTimestamp\": \"2025-01-01T14:35:00Z\",\r\n    \"PreviousProcessingTimestamp\": \"2025-01-01T14:40:00Z\",\r\n\t\"Source\": \"OrderProcessingService\",\r\n    \"PreviousExecutedRows\": 123,\r\n    \"RequeueTimes\": 3\r\n  }\r\n}",
+            "{\r\n  \"Message\": \"This is Mock Json Data\",\r\n  \"Status\": 200,\r\n  \"Headers\": {\r\n    \"CreateTimestamp\": \"2025-01-01T14:35:00Z\",\r\n    \"PreviousProcessingTimestamp\": \"2025-01-01T14:40:00Z\",\r\n\t\"Source\": \"OrderProcessingService\",\r\n    \"PreviousExecutedRows\": \"123\",\r\n    \"RequeueTimes\": \"3\"\r\n  }\r\n}",
             true,  //expectAck
             false, //expectNack
             false, //expectRequeue
@@ -214,7 +217,7 @@ namespace MessageWorkerPool.Test
             "replyQueue")]
         [InlineData("This is Test Message",
             "test-correlation-id",
-            "{\r\n  \"Message\": \"This is Mock Json Data\",\r\n  \"Status\": -1,\r\n  \"Headers\": {\r\n    \"CreateTimestamp\": \"2025-01-01T14:35:00Z\",\r\n    \"PreviousProcessingTimestamp\": \"2025-01-01T14:40:00Z\",\r\n\t\"Source\": \"OrderProcessingService\",\r\n    \"PreviousExecutedRows\": 123,\r\n    \"RequeueTimes\": 3\r\n  }\r\n}",
+            "{\r\n  \"Message\": \"This is Mock Json Data\",\r\n  \"Status\": -1,\r\n  \"Headers\": {\r\n    \"CreateTimestamp\": \"2025-01-01T14:35:00Z\",\r\n    \"PreviousProcessingTimestamp\": \"2025-01-01T14:40:00Z\",\r\n\t\"Source\": \"OrderProcessingService\",\r\n    \"PreviousExecutedRows\": \"123\",\r\n    \"RequeueTimes\": \"3\"\r\n  }\r\n}",
             false, //expectAck
             true,  //expectNack
             false, //expectRequeue
@@ -224,7 +227,7 @@ namespace MessageWorkerPool.Test
         {
             var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
             var expectOutputTask = JsonSerializer.Deserialize<MessageOutputTask>(outputResponse);
-            var eventArgs = CreateBasicDeliverEventArgs(message, correlationId, replyQueueName: replyQueueName, header: expectOutputTask.Headers);
+            var eventArgs = CreateBasicDeliverEventArgs(message, correlationId, replyQueueName: replyQueueName, header: expectOutputTask.Headers.ConvertToObjectMap());
             var cts = new CancellationTokenSource(tokenTimeout);
             worker.Status.Should().Be(WorkerStatus.WaitForInit);
             await worker.InitWorkerAsync(cts.Token);
@@ -246,7 +249,7 @@ namespace MessageWorkerPool.Test
             _channel.Verify(x => x.BasicPublish(string.Empty,
                 It.Is<string>(x => x == replyQueueName),
                 It.IsAny<bool>(),
-                It.Is<IBasicProperties>(x => x.ContentEncoding == "utf-8" && x.Headers.SequenceEqual(expectOutputTask.Headers)),
+                It.Is<IBasicProperties>(x => x.ContentEncoding == "utf-8" && x.Headers.ConvertToStringMap().SequenceEqual(expectOutputTask.Headers)),
                 It.Is<ReadOnlyMemory<byte>>(mm => mm.ToArray().SequenceEqual(Encoding.UTF8.GetBytes(expectOutputTask.Message)))), Times.Exactly(expectRequeue ? 1 : 0));
         }
 
@@ -269,5 +272,27 @@ namespace MessageWorkerPool.Test
 
             VerifyLogging("This is Test Message");
         }
+
+        [Fact]
+        public async Task GracefulReleaseAsync_ShouldExecuteCustomLogic_WhenOverridden()
+        {
+            var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+            await worker.InitWorkerAsync(CancellationToken.None);
+            await worker.GracefulShutDownAsync(CancellationToken.None);
+            worker.GracefulReleaseCalled.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task CreateOperationPipeAsync_ShouldReturnValidPipeStreamWrapper()
+        {
+            string pipeName = $"testPipe_{Guid.NewGuid():N}";
+            var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+
+            var pipeStreamWrapper = await worker.TestCreateOperationPipeAsync(pipeName);
+
+            pipeStreamWrapper.Should().NotBeNull();
+            pipeStreamWrapper.Should().Be(worker.pipeStream.Object);
+        }
+
     }
 }

@@ -23,7 +23,7 @@ function Set-EnvFromFile($filePath) {
 Set-EnvFromFile "./env/.env"
 Set-EnvFromFile "./env/.local_env"
 
-for ($i = 1; $i -le 10; $i++) {
+for ($i = 1; $i -le 20; $i++) {
     Write-Host "Execution #$i"
 
     # Start the container
@@ -37,7 +37,7 @@ for ($i = 1; $i -le 10; $i++) {
     Start-Sleep -Seconds 2
 
     # Run dotnet test
-    dotnet test IntegrationTester.sln --logger:"console;verbosity=detailed"
+    dotnet test IntegrationTester.rabbitmq.sln --logger:"console;verbosity=detailed"
 }
 
 

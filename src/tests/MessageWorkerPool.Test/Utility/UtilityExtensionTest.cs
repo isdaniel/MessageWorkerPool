@@ -52,10 +52,9 @@ namespace MessageWorkerPool.Test.Utility
             };
 
             // Act
-            var result = HelperExtension.ConvertToString(source);
+            var result = HelperExtension.ConvertToStringMap(source);
 
-            // Assert
-            Assert.Equal(expected, result);
+            result.Should().BeEquivalentTo(expected);
         }
 
         [Fact]
@@ -65,10 +64,10 @@ namespace MessageWorkerPool.Test.Utility
             var source = new Dictionary<string, object>();
 
             // Act
-            var result = HelperExtension.ConvertToString(source);
+            var result = HelperExtension.ConvertToStringMap(source);
 
             // Assert
-            Assert.Empty(result);
+            result.Should().BeEmpty();
         }
 
         [Fact]
@@ -78,10 +77,10 @@ namespace MessageWorkerPool.Test.Utility
             IDictionary<string, object> source = null;
 
             // Act
-            var result = HelperExtension.ConvertToString(source);
+            var result = HelperExtension.ConvertToStringMap(source);
 
             // Assert
-            Assert.Empty(result);
+            result.Should().BeEmpty();
         }
 
         [Fact]
@@ -103,10 +102,10 @@ namespace MessageWorkerPool.Test.Utility
             };
 
             // Act
-            var result = HelperExtension.ConvertToObject(source);
+            var result = HelperExtension.ConvertToObjectMap(source);
 
             // Assert
-            Assert.Equal(expected, result);
+            result.Should().BeEquivalentTo(result);
         }
 
         [Fact]
@@ -116,10 +115,10 @@ namespace MessageWorkerPool.Test.Utility
             var source = new Dictionary<string, string>();
 
             // Act
-            var result = HelperExtension.ConvertToObject(source);
+            var result = HelperExtension.ConvertToObjectMap(source);
 
             // Assert
-            Assert.Empty(result);
+            result.Should().BeEmpty();
         }
 
         [Fact]
@@ -129,10 +128,43 @@ namespace MessageWorkerPool.Test.Utility
             IDictionary<string, string> source = null;
 
             // Act
-            var result = HelperExtension.ConvertToObject(source);
+            var result = HelperExtension.ConvertToObjectMap(source);
 
             // Assert
-            Assert.Empty(result);
+            result.Should().BeEmpty();
         }
+
+        [Fact]
+        public void TryGetValueOrDefault_ShouldReturnValue_WhenKeyExists()
+        {
+            var dictionary = new Dictionary<string, int> { { "key", 42 } };
+            var result = dictionary.TryGetValueOrDefault("key");
+            result.Should().Be(42);
+        }
+
+        [Fact]
+        public void TryGetValueOrDefault_ShouldReturnDefault_WhenKeyDoesNotExist_String()
+        {
+            var dictionary = new Dictionary<string, string>();
+            var result = dictionary.TryGetValueOrDefault("missingKey");
+            result.Should().Be(default);
+        }
+
+        [Fact]
+        public void TryGetValueOrDefault_ShouldReturnDefault_WhenKeyDoesNotExist_Int()
+        {
+            var dictionary = new Dictionary<string, int>();
+            var result = dictionary.TryGetValueOrDefault("missingKey");
+            result.Should().Be(default);
+        }
+
+        [Fact]
+        public void TryGetValueOrDefault_ShouldThrowArgumentNullException_WhenKeyIsNullOrEmpty()
+        {
+            var dictionary = new Dictionary<string, int>();
+            Assert.Throws<ArgumentNullException>(() => dictionary.TryGetValueOrDefault(null));
+            Assert.Throws<ArgumentNullException>(() => dictionary.TryGetValueOrDefault(""));
+        }
+
     }
 }
