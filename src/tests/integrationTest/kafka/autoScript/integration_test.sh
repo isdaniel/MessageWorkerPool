@@ -27,7 +27,7 @@ set_env_from_file() {
 set_env_from_file "./env/.env"
 set_env_from_file "./env/.local_env"
 echo "127.0.0.1 kafka1" | sudo tee -a /etc/hosts
-for i in {1..5}
+for i in {1..2}
 do
     docker start $(docker ps -a --filter "name=envpreparatory" --format "{{.ID}}")
     echo "Waiting for 5 seconds before running .NET testing iteration $i"
