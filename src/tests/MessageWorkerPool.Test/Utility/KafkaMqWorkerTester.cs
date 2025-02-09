@@ -57,7 +57,7 @@ namespace MessageWorkerPool.Test.Utility
         {
             base.SetupMessageQueueSetting(token);
             //to avoid unit test shutdown so quickly.
-            Thread.Sleep(25);
+            Thread.Sleep(80);
         }
     }
 }
