@@ -46,7 +46,6 @@ namespace MessageWorkerPool.KafkaMq
                 }
                 catch (OperationCanceledException)
                 {
-                    Logger.LogInformation("StartMessageConsumptionLoop occurred OperationCanceledException! it's expected during service shutdown!");
                     break;
                 }
                 catch (Exception ex)

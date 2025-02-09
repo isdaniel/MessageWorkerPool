@@ -1,34 +1,25 @@
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using Moq;
-using MessageWorkerPool.RabbitMq;
-using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
 using MessageWorkerPool.IO;
-using System.IO.Pipes;
+using MessageWorkerPool.KafkaMq;
+using Confluent.Kafka;
 
 namespace MessageWorkerPool.Test.Utility
 {
-    internal class RabbitMqWorkerTester : RabbitMqWorker
+    internal class KafkaMqWorkerTester : KafkaMqWorker<Null>
     {
-        internal RabbitMqWorkerTester(
-            RabbitMqSetting setting,
-            WorkerPoolSetting workerSetting,
-            IModel channel,
-            ILogger<RabbitMqWorker> logger) : base(setting, workerSetting, channel, logger)
-        {
-
-        }
-
+        
         internal bool GracefulReleaseCalled;
+
+        public KafkaMqWorkerTester(WorkerPoolSetting workerSetting, KafkaSetting<Null> kafkaSetting, ILogger logger) : base(workerSetting, kafkaSetting, logger)
+        {
+        }
 
         internal Mock<IProcessWrapper> mockProcess { get; set; }
         internal Mock<StreamWriter> mockStandardInput { get; set; }
         internal Mock<StreamReader> mockStandardOutput { get; set; }
         internal Mock<PipeStreamWrapper> pipeStream { get; set; }
-
-        //expose ReceiveEvent for testing
-        internal AsyncEventHandler<BasicDeliverEventArgs> AsyncEventHandler => base.ReceiveEvent;
 
         protected override IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo)
         {
@@ -46,7 +37,7 @@ namespace MessageWorkerPool.Test.Utility
             return mockProcess.Object;
         }
 
-        protected override Task<PipeStreamWrapper> CreateOperationPipeAsync(string pipeName,CancellationToken token = default)
+        protected override Task<PipeStreamWrapper> CreateOperationPipeAsync(string pipeName, CancellationToken token = default)
         {
             pipeStream = new Mock<PipeStreamWrapper>(null);
             return Task.FromResult(pipeStream.Object);
@@ -60,6 +51,13 @@ namespace MessageWorkerPool.Test.Utility
         public async Task<PipeStreamWrapper> TestCreateOperationPipeAsync(string pipeName)
         {
             return await CreateOperationPipeAsync(pipeName);
+        }
+
+        protected override void SetupMessageQueueSetting(CancellationToken token)
+        {
+            base.SetupMessageQueueSetting(token);
+            //to avoid unit test shutdown so quickly.
+            Thread.Sleep(200);
         }
     }
 }
