@@ -31,7 +31,7 @@ jobs:
     - name: Start chaos script
       run: |
         chmod +x ./chaos_script.sh
-        nohup ./chaos_script.sh 'tradeworker' > chaos_script.log 2>&1 &
+        nohup ./chaos_script.sh 'tradeworker' > chaos_script_${{ matrix.mqtype }}.log 2>&1 &
       working-directory: ./src/tests/integrationTest/autoScript
 
     - name: Setup .NET
@@ -52,4 +52,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: chaos-script-log
-        path: ./src/tests/integrationTest/autoScript/chaos_script.log
+        path: ./src/tests/integrationTest/autoScript/chaos_script_${{ matrix.mqtype }}.log
