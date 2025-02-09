@@ -25,10 +25,5 @@ namespace MessageWorkerPool.KafkaMq
             var logger = _loggerFactory.CreateLogger<KafkaMqWorker<TKey>>();
             return new KafkaMqWorker<TKey>(_workerSetting, _kafkaSetting, logger);
         }
-
-        protected override void Dispose(bool disposing)
-        {
-            
-        }
     }
 }

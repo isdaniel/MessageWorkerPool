@@ -181,13 +181,13 @@ namespace MessageWorkerPool
             await Process.StandardInput.FlushAsync().ConfigureAwait(false);
         }
 
-        protected async virtual Task<PipeStreamWrapper> CreateOperationPipeAsync(string pipeName)
+        protected async virtual Task<PipeStreamWrapper> CreateOperationPipeAsync(string pipeName,CancellationToken token = default)
         {
             try
             {
                 var _workerOperationPipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
                    PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.WriteThrough, 0, 0);
-                await _workerOperationPipe.WaitForConnectionAsync().ConfigureAwait(false);
+                await _workerOperationPipe.WaitForConnectionAsync(token).ConfigureAwait(false);
                 return new PipeStreamWrapper(_workerOperationPipe);
             }
             catch (Exception ex)

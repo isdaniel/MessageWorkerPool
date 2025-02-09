@@ -11,6 +11,7 @@ using Moq;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using MessageWorkerPool.Extensions;
+using MessageWorkerPool.KafkaMq;
 
 namespace MessageWorkerPool.Test
 {
@@ -294,5 +295,46 @@ namespace MessageWorkerPool.Test
             pipeStreamWrapper.Should().Be(worker.pipeStream.Object);
         }
 
+
+        [Fact]
+        public async Task WorkerBaseTestor_CreateOperationPipeAsync_WithValidPipeName_ReturnsPipeStreamWrapper()
+        {
+            var loggerMock = new Mock<ILogger>();
+            var workerSetting = new WorkerPoolSetting();
+            var testWorker = new WorkerBaseTestor(workerSetting, loggerMock.Object);
+            string pipeName = "testpipe";
+            Func<Task> act = async () => await testWorker.CreateOperationPipeAsync(pipeName);
+            using var clientStream = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.WriteThrough);
+            var task = Task.Run(() => {
+                clientStream.Connect();
+            });
+            await act.Should().NotThrowAsync();
+            await task;
+        }
+
+        [Fact]
+        public async Task CreateOperationPipeAsync_ShouldThrowException_WhenPipeCreationFails()
+        {
+            var loggerMock = new Mock<ILogger>();
+            var workerSetting = new WorkerPoolSetting();
+            var testWorker = new WorkerBaseTestor(workerSetting, loggerMock.Object);
+            string pipeName = "test.123";
+            CancellationTokenSource cts = new CancellationTokenSource(1000);
+            var creation = async () => await testWorker.CreateOperationPipeAsync(pipeName, cts.Token);
+            await creation.Should().ThrowAsync<Exception>();
+        }
+
+        private class WorkerBaseTestor : WorkerBase
+        {
+            public WorkerBaseTestor(WorkerPoolSetting workerSetting, ILogger logger) : base(workerSetting, logger)
+            {
+            }
+
+            protected override void SetupMessageQueueSetting(CancellationToken token)
+            {
+            }
+
+            public async Task CreateOperationPipeAsync(string name, CancellationToken token = default) => await base.CreateOperationPipeAsync(name, token);
+        }
     }
 }

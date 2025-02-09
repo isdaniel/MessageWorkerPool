@@ -33,7 +33,7 @@ namespace MessageWorkerPool.KafkaMq
         public Action<ConsumerBuilder<TKey, string>> ConsumerRegister { get; set; } = (builder) => { };
         public Action<ProducerBuilder<TKey, string>> ProducerRegister { get; set; } = (builder) => { };
 
-        public IConsumer<TKey, string> GetConsumer()
+        public virtual IConsumer<TKey, string> GetConsumer()
         {
             if (ConsumerCfg == null)
             {
@@ -49,7 +49,7 @@ namespace MessageWorkerPool.KafkaMq
             return builder.Build();
         }
 
-        public IProducer<TKey, string> GetProducer()
+        public virtual IProducer<TKey, string> GetProducer()
         {
             if (ProducerCfg == null)
             {
