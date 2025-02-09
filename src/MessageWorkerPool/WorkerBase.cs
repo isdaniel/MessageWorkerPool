@@ -183,10 +183,18 @@ namespace MessageWorkerPool
 
         protected async virtual Task<PipeStreamWrapper> CreateOperationPipeAsync(string pipeName)
         {
-            var _workerOperationPipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
-               PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.WriteThrough, 0, 0);
-            await _workerOperationPipe.WaitForConnectionAsync().ConfigureAwait(false);
-            return new PipeStreamWrapper(_workerOperationPipe);
+            try
+            {
+                var _workerOperationPipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1,
+                   PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.WriteThrough, 0, 0);
+                await _workerOperationPipe.WaitForConnectionAsync().ConfigureAwait(false);
+                return new PipeStreamWrapper(_workerOperationPipe);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, $"Failed to create operation pipe with name {pipeName}");
+                throw;
+            }
         }
 
         /// <summary>
