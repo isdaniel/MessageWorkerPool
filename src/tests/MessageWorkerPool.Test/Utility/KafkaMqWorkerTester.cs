@@ -61,7 +61,7 @@ namespace MessageWorkerPool.Test.Utility
             Thread.Sleep(200);
         }
 
-        public void VeirfyCreateProcess(ProcessStartInfo processStartInfo)
+        public void VerifyCreateProcess(ProcessStartInfo processStartInfo)
         {
             base.CreateProcess(processStartInfo).Should().NotBeNull();
         }
