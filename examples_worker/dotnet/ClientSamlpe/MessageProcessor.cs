@@ -70,11 +70,11 @@ namespace WorkerProcessSample
             await _task;
         }
 
-        int ParseTimeout(IDictionary<string, object> headers)
+        int ParseTimeout(IDictionary<string, string> headers)
         {
             if (headers != null &&
                 headers.TryGetValue("TimeoutMilliseconds", out var str) &&
-                int.TryParse(str as string, out var timeout))
+                int.TryParse(str, out var timeout))
             {
                 return timeout;
             }
