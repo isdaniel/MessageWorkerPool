@@ -30,7 +30,7 @@ namespace MessageWorkerPool.RabbitMq
         int _messageCount = 0;
         internal IModel channel { get; private set; }
 
-        internal ConcurrentBag<ulong> RejectMessageDeliveryTags { get; private set; } = new ConcurrentBag<ulong>();
+        internal ConcurrentBag<ulong> RejectMessageDeliveryTags { get; } = new ConcurrentBag<ulong>();
 
         protected ILogger<RabbitMqWorker> Logger { get; }
 
@@ -130,13 +130,9 @@ namespace MessageWorkerPool.RabbitMq
                 {
                     taskOutput = await DataStreamReadAsync<MessageOutputTask>();
                 }
-                catch (JsonException ex)
-                {
-                    Logger.LogError(ex, "Error parsing MessageOutputTask JSON, it might lead worker in infinite loop!");
-                }
                 catch (Exception ex)
                 {
-                    Logger.LogError(ex, "Unexpected error during JSON parsing.");
+                    Logger.LogError(ex, "Unexpected error...");
                     throw;
                 }
 

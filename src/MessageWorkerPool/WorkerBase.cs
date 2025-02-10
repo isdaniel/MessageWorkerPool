@@ -8,11 +8,6 @@ using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 using System.IO.Pipes;
 using MessageWorkerPool.IO;
-using Confluent.Kafka;
-using MessageWorkerPool.Extensions;
-using RabbitMQ.Client.Events;
-using System.Threading.Channels;
-
 
 namespace MessageWorkerPool
 {

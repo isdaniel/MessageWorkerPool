@@ -44,33 +44,6 @@ namespace MessageWorkerPool.Test
             var worker = CreateWorker(new WorkerPoolSetting());
             worker.VerifyCreateProcess(new System.Diagnostics.ProcessStartInfo());
         }
-        //[Fact]
-        //public async Task StartMessageConsumptionLoop_CancellationToken_ExitLoop()
-        //{
-        //    var worker = CreateWorker(new WorkerPoolSetting());
-        //    var cts = new CancellationTokenSource(10);
-        //    string message = "Test message";
-        //    _mockConsumer.Setup(x => x.Consume(It.IsAny<CancellationToken>())).Returns(new ConsumeResult<Null, string>()
-        //    {
-        //        Message = new Message<Null, string>()
-        //        {
-        //            Value = message
-        //        }
-        //    });
-
-        //    worker.Status.Should().Be(WorkerStatus.WaitForInit);
-        //    await worker.InitWorkerAsync(cts.Token);
-        //    worker.Status.Should().Be(WorkerStatus.Running);
-        //    worker.GracefulReleaseCalled.Should().BeFalse();
-
-        //    _mockLogger.Verify(l => l.Log(
-        //         LogLevel.Information,
-        //         It.IsAny<EventId>(),
-        //         It.Is<It.IsAnyType>((v, t) => v.ToString().Contains($"StartMessageConsumptionLoop occurred OperationCanceledException! it's expected during service shutdown!")),
-        //         null,
-        //         It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-        //         Times.Once);
-        //}
 
         [Theory]
         [InlineData("This is Test Message", "test-correlation-id", "{\"Message\":\"fake MESSAGE_DONE\",\"Status\":200}", true, false, false, int.MaxValue)]
