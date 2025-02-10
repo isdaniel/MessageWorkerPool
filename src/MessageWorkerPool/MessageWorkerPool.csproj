@@ -9,8 +9,8 @@
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/isdaniel/MessageWorkerPool</PackageProjectUrl>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <Version>0.0.0.12</Version>
-    <PackageReleaseNotes>Support for .net standerd 2.0, multiple-processes Messaging architecture extension</PackageReleaseNotes>
+    <Version>0.0.0.13</Version>
+    <PackageReleaseNotes>New support Kafka worker pool, and rabbitMQ worker enhancement</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
   </PropertyGroup>
