@@ -90,15 +90,15 @@ namespace MessageWorkerPool.RabbitMq
                 {
                     AcknowledgeMessage(e.DeliveryTag);
                     string replyQueue = !string.IsNullOrWhiteSpace(taskOutput.ReplyQueueName) ? taskOutput.ReplyQueueName : e.BasicProperties.ReplyTo;
-
-                    ReplyQueue(replyQueue, taskOutput, () => {
+                    Action action = () => {
                         var properties = e.BasicProperties;
                         properties.ContentEncoding = Encoding.UTF8.WebName;
                         properties.Headers = taskOutput.Headers.ConvertToObjectMap();
 
                         //TODO! We could support let user fill queue or exchange name from worker protocol in future.
                         channel.BasicPublish(string.Empty, replyQueue, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
-                    });
+                    };
+                    await ReplyQueueAsync(replyQueue, taskOutput, action);
                 }
                 else
                 {

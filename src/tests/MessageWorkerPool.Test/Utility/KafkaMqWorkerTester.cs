@@ -4,6 +4,7 @@ using Moq;
 using MessageWorkerPool.IO;
 using MessageWorkerPool.KafkaMq;
 using Confluent.Kafka;
+using FluentAssertions;
 
 namespace MessageWorkerPool.Test.Utility
 {
@@ -58,6 +59,11 @@ namespace MessageWorkerPool.Test.Utility
             base.SetupMessageQueueSetting(token);
             //to avoid unit test shutdown so quickly.
             Thread.Sleep(200);
+        }
+
+        public void VeirfyCreateProcess(ProcessStartInfo processStartInfo)
+        {
+            base.CreateProcess(processStartInfo).Should().NotBeNull();
         }
     }
 }
