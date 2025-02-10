@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using FluentAssertions;
 using MessageWorkerPool.KafkaMq;
+using Moq;
 
 namespace MessageWorkerPool.Test
 {
@@ -89,6 +90,35 @@ namespace MessageWorkerPool.Test
 
             act.Should().Throw<ArgumentNullException>();
         }
-    }
 
+        [Fact]
+        public void CreateConsumer_ShouldBuildConsumerSuccessfully()
+        {
+            var kafkaSetting = new KafkaSetting<string>()
+            {
+                ConsumerCfg = new ConsumerConfig()
+                {
+                    GroupId = "testgroup"
+                }
+            };
+
+            var consumer = kafkaSetting.GetConsumer();
+            consumer.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void CreateProducer_ShouldBuildProducerSuccessfully()
+        {
+            var kafkaSetting = new KafkaSetting<string>()
+            {
+                ProducerCfg = new ProducerConfig()
+                {
+                   
+                }
+            };
+
+            var producer = kafkaSetting.GetProducer();
+            producer.Should().NotBeNull();
+        }
+    }
 }

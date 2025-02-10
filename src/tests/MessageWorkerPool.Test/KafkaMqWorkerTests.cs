@@ -37,6 +37,13 @@ namespace MessageWorkerPool.Test
             return new KafkaMqWorkerTester(workerSetting, _mockKafkaSetting.Object, _mockLogger.Object);
         }
 
+
+        [Fact]
+        public void VeirfyCreateProcess_ShouldBeSuccessfully()
+        {
+            var worker = CreateWorker(new WorkerPoolSetting());
+            worker.VeirfyCreateProcess(new System.Diagnostics.ProcessStartInfo());
+        }
         //[Fact]
         //public async Task StartMessageConsumptionLoop_CancellationToken_ExitLoop()
         //{

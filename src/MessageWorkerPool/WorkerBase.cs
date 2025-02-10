@@ -233,13 +233,20 @@ namespace MessageWorkerPool
         /// <summary>
         /// Sends a reply message to a queue specified in the original message's reply-to property.
         /// </summary>
-        protected void ReplyQueue(string replyQueueName, MessageOutputTask taskOutput,Action publishAction)
+        protected async Task ReplyQueueAsync(string replyQueueName, MessageOutputTask taskOutput, Delegate publishAction)
         {
             if (!string.IsNullOrWhiteSpace(replyQueueName) && taskOutput.Status == MessageStatus.MESSAGE_DONE_WITH_REPLY)
             {
                 Logger.LogDebug($"reply queue request reply queue name is {replyQueueName},replyMessage : {taskOutput.Message}");
 
-                publishAction();
+                if (publishAction is Func<Task> asyncAction)
+                {
+                    await asyncAction();
+                }
+                else if (publishAction is Action syncAction)
+                {
+                    syncAction();
+                }
             }
             else if (taskOutput.Status != MessageStatus.MESSAGE_DONE_WITH_REPLY && !string.IsNullOrWhiteSpace(replyQueueName))
             {

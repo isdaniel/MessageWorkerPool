@@ -73,14 +73,14 @@ namespace MessageWorkerPool.KafkaMq
 
             if (_messageDoneMap.Contains(taskOutput.Status))
             {
-                HandleSuccessfulMessage(result, headers, taskOutput);
+                await HandleSuccessfulMessage(result, headers, taskOutput);
             }
         }
 
-        private void HandleSuccessfulMessage(ConsumeResult<TKey, string> result, Dictionary<string, string> headers, MessageOutputTask taskOutput)
+        private async Task HandleSuccessfulMessage(ConsumeResult<TKey, string> result, Dictionary<string, string> headers, MessageOutputTask taskOutput)
         {
             string replyQueue = !string.IsNullOrWhiteSpace(taskOutput.ReplyQueueName) ? taskOutput.ReplyQueueName : headers.TryGetValueOrDefault("ReplyTo");
-            ReplyQueue(replyQueue, taskOutput, async () =>
+            await ReplyQueueAsync(replyQueue, taskOutput, (Func<Task>)(async () =>
             {
                 var replyHeaders = new Headers();
                 foreach (var item in headers)
@@ -93,7 +93,7 @@ namespace MessageWorkerPool.KafkaMq
                     Headers = replyHeaders,
                     Value = taskOutput.Message
                 });
-            });
+            }));
             _consumer.Commit(result);
         }
 
@@ -119,28 +119,15 @@ namespace MessageWorkerPool.KafkaMq
             {
                 if (_consumer != null)
                 {
-                    try
-                    {
-                        _consumer.Close();
-                        _consumer.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError(ex, "Error disposing consumer");
-                    }
+                    _consumer.Close();
+                    _consumer.Dispose();
                     _consumer = null;
                 }
 
                 if (_producer != null)
                 {
-                    try
-                    {
-                        _producer.Dispose();
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError(ex, "Error disposing producer");
-                    }
+                    _producer.Flush();
+                    _producer.Dispose();
                     _producer = null;
                 }
             }
