@@ -6,6 +6,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using MessageWorkerPool.IO;
 using System.IO.Pipes;
+using FluentAssertions;
 
 namespace MessageWorkerPool.Test.Utility
 {
