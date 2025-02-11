@@ -62,10 +62,13 @@ jobs:
     - name: Create Git Tag
       if: env.NUGET_PUSH_SUCCESS == 'true'
       run: |
-        PACKAGE_VERSION=$(ls ./src/nupkg/*.nupkg | grep -oP '\d+\.\d+\.\d+\.\d+' | head -1)
+        PACKAGE_FILE=$(ls ./src/nupkg/*.nupkg | head -1)
+        PACKAGE_VERSION=$(echo "$PACKAGE_FILE" | grep -oP '(?<=MessageWorkerPool\.)\d+\.\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)?')
         if [ -n "$PACKAGE_VERSION" ]; then
-          git tag "v.$PACKAGE_VERSION"
-          git push origin "v.$PACKAGE_VERSION"
+          TAG_NAME="$PACKAGE_VERSION"
+          echo "Creating tag: $TAG_NAME"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
         else
           echo "Package version could not be determined."
           exit 1
