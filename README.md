@@ -39,6 +39,7 @@ dotnet build
 
 * [MessagePack](https://github.com/MessagePack-CSharp/MessagePack-CSharp) : Extremely Fast MessagePack Serializer.
 * [rabbitmq-dotnet-client](https://github.com/rabbitmq/rabbitmq-dotnet-client) : rabbitMq c# client.
+* [Confluent.Kafka](https://github.com/confluentinc/confluent-kafka-dotnet) : Kafka c# client.
 
 ## Quick Start
 
@@ -58,6 +59,8 @@ docker-compose --env-file .\env\.env up --build -d
 ## Program Structure
 
 Here is the sample code for creating and configuring a worker pool that interacts with RabbitMQ. Below is a breakdown of its functionality; The worker pool will fetch message from RabbitMQ server depended on your `RabbitMqSetting` setting and sending the message via `Process.StandardInput` to real worker node that created by users.
+
+### RabbitMq example code
 
 ```c#
 public class Program
@@ -103,6 +106,67 @@ public class Program
 
 4. **Reusable Workers**
    - Worker processes are defined by the `CommandLine` and `Arguments`, making it easy to reuse or swap out the tasks performed by the workers.
+
+### Kafka example code
+
+The `KafkaSetting<T>` is responsible for kafka setting, `ConsumerConfig` pull information from topic, `ProducerConfig` for worker send reply-queue setting (Please specify `ReplyTo` key/value from message header)
+
+Here are header setting framework support when we use kafka workerpool.
+
+* ReplyTo: worker send reply-queue setting that used for rpc and reply-queue pattern.
+* CorrelationId: message CorrelationId.
+
+```c#
+public static async Task Main(string[] args)
+{
+   var builder = CreateHostBuilder(args);
+   AddKafkaWorkerPool(builder);
+   builder.Build().Run();
+}
+
+private static void AddKafkaWorkerPool(IHostBuilder builder)
+{
+   builder.AddKafkaMqWorkerPool(new KafkaSetting<Null>()
+   {
+      ProducerCfg = new ProducerConfig()
+      {
+            BootstrapServers = EnvironmentVAR.HOSTNAME,
+            Acks = Acks.All,
+            EnableIdempotence = true,
+            BatchSize = 32 * 1024
+      },
+      ConsumerCfg = new ConsumerConfig()
+      {
+            BootstrapServers = EnvironmentVAR.HOSTNAME,
+            GroupId = EnvironmentVAR.GROUPID,
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+            EnableAutoCommit = false
+      },
+   }, new WorkerPoolSetting[]{
+               new WorkerPoolSetting()
+               {
+                  WorkerUnitCount = 1,
+                  CommandLine = "dotnet",
+                  Arguments = @"./BalanceWorkerApp/WorkerProcessor.dll" ,
+                  QueueName = Environment.GetEnvironmentVariable("BALANCEWORKER_QUEUE")
+               },
+               new WorkerPoolSetting()
+               {
+                  WorkerUnitCount = 4,
+                  CommandLine = "dotnet",
+                  Arguments = @"./FibonacciWorkerApp/RPC_FibonacciWorker.dll" ,
+                  QueueName = Environment.GetEnvironmentVariable("FIBONACCI_QUEUE") ?? "integrationTesting_fibonacciQ"
+               },
+               new WorkerPoolSetting()
+               {
+                  WorkerUnitCount = 4,
+                  CommandLine = "dotnet",
+                  Arguments = @"./LongRunningTaskWorkerApp/LongRunningTaskWorker.dll",
+                  QueueName = Environment.GetEnvironmentVariable("LONGRUNNINGBATCHTASK_QUEUE")
+               },
+            });
+}
+```
 
 ## Protocol between worker and task process
 
