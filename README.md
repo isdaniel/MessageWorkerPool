@@ -207,6 +207,41 @@ To represent the provided pseudo-JSON structure using the `MsgPack` format (byte
 
 More information you can use [msgpack-converter](https://ref45638.github.io/msgpack-converter/) to decode and encode.
 
+
+## MessageOutputTask Documentation
+
+`MessageOutputTask` is a class designed to encapsulate messages from a Message Queue (MQ) service. It uses MessagePack for efficient serialization.
+
+### Class Properties
+
+| Property | Type | Key | Description |
+|----------|------|-----|-------------|
+| `Message` | `string` | 0 | Contains the output message from the process |
+| `Status` | `MessageStatus` | 1 | Indicates the processing status of the message |
+| `Headers` | `IDictionary<string, string>` | 2 | Stores reply information for continued message execution |
+| `ReplyQueueName` | `string` | 3 | Specifies the reply queue name (defaults to BasicProperties.Reply) |
+
+### Message Status Values
+
+The `Status` property can have the following values:
+
+| Status | Value | Description |
+|--------|-------|-------------|
+| `IGNORE_MESSAGE` | -1 | Message should be ignored |
+| `MESSAGE_DONE` | 200 | Message processing completed |
+| `MESSAGE_DONE_WITH_REPLY` | 201 | Message processed and requires a reply |
+
+* IGNORE_MESSAGE (-1) : Append the message to data steaming pipeline without further processing.
+  - `Status = -1`: task process tell worker this isn't a response nor ack message, only feedback to data steaming pipeline.
+
+* MESSAGE_DONE (200) : Notify the worker that this case can be acknowledged by the message queue service.
+  - `Status = 200` task process tell worker the task can be acked that mean it was finished.
+
+* MESSAGE_DONE_WITH_REPLY (201) : Please ensure we satisfied below steps for supporting RPC.
+   1. The client side cdoe must provide `ReplyTo` information.
+   2. task process will use the `Message` column in the JSON payload to reply with the queue information.
+   3. Here is an example: When `Status = 201` is sent via data steaming pipeline, the task process instructs the worker to output, such as `1010`, which must then be sent to the reply queue.
+
 ```c#
  /// <summary>
 /// Encapsulate message from MQ service
@@ -235,6 +270,27 @@ public class MessageOutputTask
    public string ReplyQueueName { get; set; }
 }
 ```
+
+## MessageInputTask Documentation
+
+`MessageInputTask` is a class designed to encapsulate incoming messages from a Message Queue (MQ) service. It uses MessagePack for serialization.
+
+### Class Properties
+
+| Property | Type | Key | Description |
+|----------|------|-----|-------------|
+| `Message` | `string` | 0 | Contains the task body/payload |
+| `CorrelationId` | `string` | 1 | Unique identifier for tracking messages between producer and consumer |
+| `OriginalQueueName` | `string` | 2 | Name of the queue from which the message originated |
+| `Headers` | `IDictionary<string, string>` | 3 | Additional message metadata and configuration |
+
+### Headers Configuration
+
+The `Headers` dictionary can contain various configuration values, including:
+- `TimeoutMilliseconds`: Specifies the processing timeout
+  - Default value: -1
+  - Negative values: Represents infinite timeout
+  - Positive values: Timeout in milliseconds
 
 ```c#
 /// <summary>
@@ -268,18 +324,7 @@ public class MessageInputTask
 }
 ```
 
-I would introduce `MessageStatus` meaning here.
-
-* IGNORE_MESSAGE (-1) : Append the message to data steaming pipeline without further processing.
-  - `Status = -1`: task process tell worker this isn't a response nor ack message, only feedback to data steaming pipeline.
-
-* MESSAGE_DONE (200) : Notify the worker that this case can be acknowledged by the message queue service.
-  - `Status = 200` task process tell worker the task can be acked that mean it was finished.
-
-* MESSAGE_DONE_WITH_REPLY (201) : Please ensure we satisfied below steps for supporting RPC.
-   1. The client side cdoe must provide `ReplyTo` information.
-   2. task process will use the `Message` column in the JSON payload to reply with the queue information.
-   3. Here is an example: When `Status = 201` is sent via data steaming pipeline, the task process instructs the worker to output, such as `1010`, which must then be sent to the reply queue.
+### MessagePack example data
 
 Example `byte[]` data
 
