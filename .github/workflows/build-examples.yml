@@ -10,7 +10,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
+        os: [ubuntu-22.04, ubuntu-24.04]
         lang: [ dotnet, python, rust]
     runs-on: ${{ matrix.os }}
     steps:
