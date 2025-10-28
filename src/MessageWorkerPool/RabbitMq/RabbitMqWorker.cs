@@ -1,17 +1,14 @@
 using System;
 using System.Collections.Concurrent;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using System.Threading.Channels;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using MessageWorkerPool.Extensions;
+using MessageWorkerPool.Telemetry;
 
 /// <summary>
 /// Represents a worker that processes messages from a RabbitMQ queue.
@@ -22,7 +19,7 @@ namespace MessageWorkerPool.RabbitMq
     /// <summary>
     /// worker base to handle infrastructure and connection matter, export an Execute method let subclass implement their logic
     /// </summary>
-    public class RabbitMqWorker : WorkerBase 
+    public class RabbitMqWorker : WorkerBase
     {
         public RabbitMqSetting Setting { get; }
         protected AsyncEventHandler<BasicDeliverEventArgs> ReceiveEvent;
@@ -32,7 +29,7 @@ namespace MessageWorkerPool.RabbitMq
 
         internal ConcurrentBag<ulong> RejectMessageDeliveryTags { get; } = new ConcurrentBag<ulong>();
 
-        protected ILogger<RabbitMqWorker> Logger { get; }
+        protected new ILogger<RabbitMqWorker> Logger { get; }
 
         private bool _disposed = false;
 
@@ -70,45 +67,57 @@ namespace MessageWorkerPool.RabbitMq
 		/// <param name="token">Cancellation token.</param>
         private async Task ProcessingMessage(BasicDeliverEventArgs e, string correlationId, CancellationToken token)
         {
-            
-            try
+            // Get RabbitMQ headers for trace context propagation
+            var messageHeaders = e.BasicProperties.Headers;
+
+            using (var telemetry = new TaskProcessingTelemetry(WorkerId, _workerSetting.QueueName, correlationId, Logger, messageHeaders))
             {
-                var message = Encoding.UTF8.GetString(e.Body.Span.ToArray());
-                Logger.LogDebug($"received message:{message}");
-                var task = new MessageInputTask
+                try
                 {
-                    Message = message,
-                    CorrelationId = correlationId,
-                    Headers = e.BasicProperties.Headers.ConvertToStringMap(),
-                    OriginalQueueName = _workerSetting.QueueName,
-                };
-                await DataStreamWriteAsync(task);
+                    var message = Encoding.UTF8.GetString(e.Body.Span.ToArray());
+                    Logger.LogDebug($"received message:{message}");
 
-                var taskOutput = await ReadAndProcessOutputAsync(token);
+                    telemetry.SetTag("messaging.message_id", e.DeliveryTag.ToString());
+                    telemetry.SetTag("messaging.rabbitmq.delivery_tag", e.DeliveryTag);
 
-                if (_messageDoneMap.Contains(taskOutput.Status))
-                {
-                    AcknowledgeMessage(e.DeliveryTag);
-                    string replyQueue = !string.IsNullOrWhiteSpace(taskOutput.ReplyQueueName) ? taskOutput.ReplyQueueName : e.BasicProperties.ReplyTo;
-                    Action action = () => {
-                        var properties = e.BasicProperties;
-                        properties.ContentEncoding = Encoding.UTF8.WebName;
-                        properties.Headers = taskOutput.Headers.ConvertToObjectMap();
-
-                        //TODO! We could support let user fill queue or exchange name from worker protocol in future.
-                        channel.BasicPublish(string.Empty, replyQueue, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
+                    var task = new MessageInputTask
+                    {
+                        Message = message,
+                        CorrelationId = correlationId,
+                        Headers = messageHeaders.ConvertToStringMap(),
+                        OriginalQueueName = _workerSetting.QueueName,
                     };
-                    await ReplyQueueAsync(replyQueue, taskOutput, action);
+                    await DataStreamWriteAsync(task);
+
+                    var taskOutput = await ReadAndProcessOutputAsync(token);
+
+                    if (_messageDoneMap.Contains(taskOutput.Status))
+                    {
+                        AcknowledgeMessage(e.DeliveryTag);
+                        string replyQueue = !string.IsNullOrWhiteSpace(taskOutput.ReplyQueueName) ? taskOutput.ReplyQueueName : e.BasicProperties.ReplyTo;
+                        Action action = () => {
+                            var properties = e.BasicProperties;
+                            properties.ContentEncoding = Encoding.UTF8.WebName;
+                            properties.Headers = taskOutput.Headers.ConvertToObjectMap();
+
+                            //TODO! We could support let user fill queue or exchange name from worker protocol in future.
+                            channel.BasicPublish(string.Empty, replyQueue, properties, Encoding.UTF8.GetBytes(taskOutput.Message));
+                        };
+                        await ReplyQueueAsync(replyQueue, taskOutput, action);
+
+                        telemetry.RecordSuccess(taskOutput.Status);
+                    }
+                    else
+                    {
+                        RejectMessage(e.DeliveryTag);
+                        telemetry.RecordRejection(taskOutput.Status);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
                     RejectMessage(e.DeliveryTag);
+                    telemetry.RecordFailure(ex);
                 }
-            }
-            catch (Exception ex)
-            {
-                RejectMessage(e.DeliveryTag);
-                Logger.LogWarning(ex, "Processing message encountered an exception!");
             }
         }
 
@@ -180,7 +189,7 @@ namespace MessageWorkerPool.RabbitMq
 
             Logger.LogInformation("RabbitMQ Conn Closed!!!!");
         }
-        
+
 
         private void RejectRemainingMessages()
         {
@@ -248,8 +257,12 @@ namespace MessageWorkerPool.RabbitMq
                         return;
                     }
                     Interlocked.Increment(ref _messageCount);
+                    TelemetryManager.Metrics?.IncrementProcessingTasks();
+
                     await ProcessingMessage(e, correlationId, token).ConfigureAwait(false);
+
                     Interlocked.Decrement(ref _messageCount);
+                    TelemetryManager.Metrics?.DecrementProcessingTasks();
                     _receivedWaitEvent.Set();
                 }
             };

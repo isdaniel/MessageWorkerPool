@@ -1,0 +1,55 @@
+# C#/.NET ignore patterns for Docker
+bin/
+obj/
+packages/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Build and test artifacts
+TestResults/
+*.trx
+coverage/
+*.coverage
+artifacts/
+
+# Environment and secrets
+.env*
+*.pfx
+*.key
+*.crt
+secrets/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Documentation and examples (exclude from builds)
+*.md
+docs/
+examples/
+release_note/
+images/
+
+# Development tools
+.codegpt
+.specify/
+specs/
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*

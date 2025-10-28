@@ -1,0 +1,67 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 50
+
+  # Add resource attributes
+  resource:
+    attributes:
+      - key: service.namespace
+        value: messageworkerpool
+        action: upsert
+      - key: deployment.environment
+        value: docker-compose
+        action: upsert
+
+  memory_limiter:
+    limit_mib: 256
+    check_interval: 1s
+
+exporters:
+  # Prometheus exporter
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
+  # OTLP exporter for Jaeger traces
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Debug exporter for debugging (replaces deprecated logging exporter)
+  debug:
+    verbosity: normal
+
+service:
+  telemetry:
+    logs:
+      level: info
+
+  pipelines:
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus, debug]
+
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/jaeger, debug]
+
+    # Logs pipeline
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [debug]
+
+  extensions: []

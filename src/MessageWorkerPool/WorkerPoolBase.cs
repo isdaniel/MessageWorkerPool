@@ -3,6 +3,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MessageWorkerPool.Telemetry;
+using System.Linq;
+using MessageWorkerPool.Utilities;
 
 namespace MessageWorkerPool
 {
@@ -33,6 +36,12 @@ namespace MessageWorkerPool
 		/// </summary>
         protected readonly List<IWorker> Workers = new List<IWorker>();
         private bool _disposed = false;
+
+        /// <summary>
+        /// Timer for periodic health status updates.
+        /// </summary>
+        private System.Threading.Timer _healthCheckTimer;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="WorkerPoolBase"/> class.
         /// </summary>
@@ -50,6 +59,12 @@ namespace MessageWorkerPool
             this._logger = _loggerFactory.CreateLogger<WorkerPoolBase>();
             _workerSetting = workerSetting;
             ProcessCount = workerSetting.WorkerUnitCount;
+            
+            // Initialize telemetry
+            TelemetryManager.Metrics?.SetActiveWorkers(0);
+            
+            // Start periodic health check updates (every 5 seconds)
+            _healthCheckTimer = new System.Threading.Timer(UpdateHealthMetrics, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
         }
 
 
@@ -68,11 +83,29 @@ namespace MessageWorkerPool
 		/// <returns>A task that represents the asynchronous operation.</returns>
         public async Task InitPoolAsync(CancellationToken token)
         {
-            for (int i = 0; i < ProcessCount; i++)
+            using (var activity = TelemetryManager.StartPoolInitActivity(ProcessCount, _workerSetting.QueueName))
             {
-                IWorker worker = GetWorker();
-                await worker.InitWorkerAsync(token);
-                Workers.Add(worker);
+                try
+                {
+                    for (int i = 0; i < ProcessCount; i++)
+                    {
+                        IWorker worker = GetWorker();
+                        
+                        await worker.InitWorkerAsync(token);
+                        Workers.Add(worker);
+                    }
+                    
+                    TelemetryManager.Metrics?.SetActiveWorkers(Workers.Count);
+                    UpdateHealthMetrics(null);
+                    
+                    _logger.LogInformation($"Worker pool initialized with {Workers.Count} workers for queue '{_workerSetting.QueueName}'");
+                }
+                catch (Exception ex)
+                {
+                    TelemetryManager.RecordException(activity, ex);
+                    _logger.LogError(ex, "Failed to initialize worker pool");
+                    throw;
+                }
             }
         }
 
@@ -93,6 +126,53 @@ namespace MessageWorkerPool
             Dispose();   
         }
 
+        /// <summary>
+        /// Updates health metrics based on current worker statuses.
+        /// </summary>
+        private void UpdateHealthMetrics(object state)
+        {
+            try
+            {
+                var summary = WorkerPoolInformationCollector.CollectWorkerStatus(Workers, _workerSetting.QueueName);
+                
+                TelemetryManager.Metrics?.SetHealthyWorkers(summary.HealthyWorkers);
+                TelemetryManager.Metrics?.SetStoppedWorkers(summary.StoppedWorkers);
+                TelemetryManager.Metrics?.SetActiveWorkers(summary.TotalWorkers);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update health metrics");
+            }
+        }
+
+        /// <summary>
+        /// Gets detailed information about the worker pool and its workers.
+        /// </summary>
+        /// <returns>WorkerPoolInformation object containing pool and worker details.</returns>
+        public virtual WorkerPoolInformation GetPoolInformation()
+        {
+            var summary = WorkerPoolInformationCollector.CollectWorkerStatus(Workers, _workerSetting.QueueName);
+            
+            return new WorkerPoolInformation
+            {
+                QueueName = _workerSetting.QueueName,
+                TotalWorkers = summary.TotalWorkers,
+                HealthyWorkers = summary.HealthyWorkers,
+                StoppedWorkers = summary.StoppedWorkers,
+                StoppingWorkers = summary.StoppingWorkers,
+                WaitingWorkers = summary.WaitingWorkers,
+                CommandLine = _workerSetting.CommandLine,
+                IsClosed = _isClosed,
+                Workers = Workers.OfType<WorkerBase>().Select(w => new WorkerInformation
+                {
+                    WorkerId = w.WorkerId,
+                    ProcessId = w.ProcessId ?? 0,
+                    Status = w.Status,
+                    QueueName = _workerSetting.QueueName
+                }).ToList()
+            };
+        }
+
         public void Dispose()
         {
             Dispose(true);
@@ -110,9 +190,15 @@ namespace MessageWorkerPool
                 return;
             }
 
-            foreach (var worker in Workers)
+            if (disposing)
             {
-                worker.Dispose();
+                _healthCheckTimer?.Dispose();
+                _healthCheckTimer = null;
+                
+                foreach (var worker in Workers)
+                {
+                    worker.Dispose();
+                }
             }
 
             _disposed = true;
