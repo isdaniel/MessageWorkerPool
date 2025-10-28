@@ -9,7 +9,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/isdaniel/MessageWorkerPool</PackageProjectUrl>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <Version>0.2.0</Version>
+    <Version>0.2.0-alpha.1</Version>
     <PackageReleaseNotes>New support Kafka worker pool, and rabbitMQ worker enhancement</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

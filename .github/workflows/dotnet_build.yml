@@ -51,13 +51,20 @@ jobs:
         NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: |
+        set +e
         OUTPUT=$(dotnet nuget push ./nupkg/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate 2>&1)
+        EXIT_CODE=$?
+        set -e
+
         echo "$OUTPUT"
 
-        if echo "$OUTPUT" | grep -q "already exists at feed"; then
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "NUGET_PUSH_SUCCESS=true" >> $GITHUB_ENV
+        elif echo "$OUTPUT" | grep -q "already exists at feed"; then
+          echo "Package already exists, skipping..."
           echo "NUGET_PUSH_SUCCESS=false" >> $GITHUB_ENV
         else
-          echo "NUGET_PUSH_SUCCESS=true" >> $GITHUB_ENV
+          echo "NUGET_PUSH_SUCCESS=false" >> $GITHUB_ENV
         fi
       working-directory: ./src
 
