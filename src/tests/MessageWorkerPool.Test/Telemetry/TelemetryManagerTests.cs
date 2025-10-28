@@ -368,7 +368,7 @@ namespace MessageWorkerPool.Test.Telemetry
 
             // Assert
             mockActivity.Verify(a => a.SetTag("message.status", "IGNORE_MESSAGE"), Times.Once);
-            mockActivity.Verify(a => a.SetStatus(ActivityStatus.Error, "Message ignored"), Times.Once);
+            mockActivity.Verify(a => a.SetStatus(ActivityStatus.Ok, null), Times.Once);
         }
 
         [Fact]

@@ -21,10 +21,6 @@ processors:
         value: docker-compose
         action: upsert
 
-  memory_limiter:
-    limit_mib: 256
-    check_interval: 1s
-
 exporters:
   # Prometheus exporter
   prometheus:
@@ -49,19 +45,17 @@ service:
     # Metrics pipeline
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
+      processors: [resource, batch]
       exporters: [prometheus, debug]
 
     # Traces pipeline
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
+      processors: [resource, batch]
       exporters: [otlp/jaeger, debug]
 
     # Logs pipeline
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
+      processors: [resource, batch]
       exporters: [debug]
-
-  extensions: []

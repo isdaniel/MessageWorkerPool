@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using MessageWorkerPool.Telemetry.Abstractions;
 using MessageWorkerPool.Utilities;
@@ -12,7 +13,7 @@ namespace MessageWorkerPool.Telemetry
     public static class TelemetryManager
     {
         private static ITelemetryProvider _provider = NoOpTelemetryProvider.Instance;
-        private static Func<System.Collections.Generic.IDictionary<string, object>, System.Diagnostics.ActivityContext> _contextExtractor;
+        private static Func<IDictionary<string, object>, ActivityContext> _contextExtractor;
 
         /// <summary>
         /// Sets the telemetry provider to use.
@@ -27,7 +28,7 @@ namespace MessageWorkerPool.Telemetry
         /// Sets a custom trace context extractor for extracting parent context from message headers.
         /// </summary>
         /// <param name="extractor">Function to extract ActivityContext from message headers.</param>
-        public static void SetTraceContextExtractor(Func<System.Collections.Generic.IDictionary<string, object>, System.Diagnostics.ActivityContext> extractor)
+        public static void SetTraceContextExtractor(Func<IDictionary<string, object>, ActivityContext> extractor)
         {
             _contextExtractor = extractor;
         }
@@ -63,10 +64,10 @@ namespace MessageWorkerPool.Telemetry
             string workerId,
             string queueName,
             string correlationId,
-            System.Collections.Generic.IDictionary<string, object> messageHeaders = null)
+            IDictionary<string, object> messageHeaders = null)
         {
             // Extract parent context from message headers if available
-            System.Diagnostics.ActivityContext parentContext = default;
+            ActivityContext parentContext = default;
             if (messageHeaders != null && _contextExtractor != null)
             {
                 try
@@ -80,7 +81,7 @@ namespace MessageWorkerPool.Telemetry
             }
 
             // Use ActivityKind.Consumer for message processing activities
-            var activity = _provider.StartActivity("Worker.ProcessTask", null, System.Diagnostics.ActivityKind.Consumer, parentContext);
+            var activity = _provider.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, parentContext);
 
             // Set individual tags on the activity
             activity?.SetTag("worker.id", workerId);
@@ -149,10 +150,11 @@ namespace MessageWorkerPool.Telemetry
             {
                 case MessageStatus.MESSAGE_DONE:
                 case MessageStatus.MESSAGE_DONE_WITH_REPLY:
+                case MessageStatus.IGNORE_MESSAGE:
                     activity.SetStatus(ActivityStatus.Ok);
                     break;
-                case MessageStatus.IGNORE_MESSAGE:
-                    activity.SetStatus(ActivityStatus.Error, "Message ignored");
+                case MessageStatus.UNKNOWN_ERROR:
+                    activity.SetStatus(ActivityStatus.Error, "UNKNOWN_ERROR");
                     break;
                 default:
                     break;

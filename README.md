@@ -23,13 +23,27 @@ To install the `MessageWorkerPool` package, use the following NuGet command:
 PM > Install-Package MessageWorkerPool
 ```
 
-To install the library, clone the repository and build the project:
+For OpenTelemetry support, also install:
+
+```sh
+PM > Install-Package MessageWorkerPool.OpenTelemetry
+```
+
+To install from source, clone the repository and build the project:
 
 ```
 git clone https://github.com/isdaniel/MessageWorkerPool.git
 cd MessageWorkerPool
 dotnet build
 ```
+
+## NuGet Packages
+
+This project provides two NuGet packages:
+
+- **MessageWorkerPool**: Core library for managing worker process pools with RabbitMQ and Kafka integration
+- **MessageWorkerPool.OpenTelemetry**: OpenTelemetry extensions for distributed tracing and metrics collection
+
 
 ## Architecture overview
 
@@ -38,23 +52,108 @@ dotnet build
 ## Dependency third-party Nuget package
 
 * [MessagePack](https://github.com/MessagePack-CSharp/MessagePack-CSharp) : Extremely Fast MessagePack Serializer.
-* [rabbitmq-dotnet-client](https://github.com/rabbitmq/rabbitmq-dotnet-client) : rabbitMq c# client.
-* [Confluent.Kafka](https://github.com/confluentinc/confluent-kafka-dotnet) : Kafka c# client.
+* [rabbitmq-dotnet-client](https://github.com/rabbitmq/rabbitmq-dotnet-client) : RabbitMQ C# client.
+* [Confluent.Kafka](https://github.com/confluentinc/confluent-kafka-dotnet) : Kafka C# client.
+* [OpenTelemetry](https://github.com/open-telemetry/opentelemetry-dotnet) : OpenTelemetry .NET implementation for distributed tracing and metrics.
 
 ## Quick Start
 
-Here’s a quick start guide for deploying your RabbitMQ and related services using the provided `docker-compose.yml` file and environment variables from `.env`.
+Here's a quick start guide for deploying your RabbitMQ and related services using the provided `docker-compose.yml` file and environment variables from `.env`.
 
 ```
 docker-compose --env-file .\env\.env up --build -d
 ```
 
-1. Check RabbitMQ health status: Open `http://localhost:8888` in your browser to access the RabbitMQ Management Dashboard.
-  * Username: guest
-  * Password: guest
-2. Check OrleansDashboard `http://localhost:8899`
-  * Username: admin
-  * Password: test.123
+### Access the Services
+
+1. **RabbitMQ Management Dashboard**: Open `http://localhost:15672` in your browser.
+   * Username: guest
+   * Password: guest
+2. **OrleansDashboard**: Open `http://localhost:8899`
+   * Username: admin
+   * Password: test.123
+3. **Prometheus Metrics**: Open `http://localhost:9090` for metrics exploration
+4. **Jaeger Tracing UI**: Open `http://localhost:16686` for distributed tracing visualization
+5. **MessageWorkerPool Metrics**: Exposed at `http://localhost:9464/metrics` for Prometheus scraping
+
+### Environment Configuration
+
+The system uses environment variables defined in `./env/.env` file. Key configurations include:
+
+**RabbitMQ Configuration:**
+```properties
+RABBITMQ_HOSTNAME=rabbitmq-server
+QUEUENAME=worker-queue
+RABBITMQ_PORT=5672
+```
+
+**OpenTelemetry Configuration:**
+```properties
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_SERVICE_NAME=MessageWorkerPool
+OTEL_SERVICE_VERSION=1.0.0
+OTEL_RESOURCE_ATTRIBUTES=service.namespace=messageworkerpool,deployment.environment=docker-compose
+```
+
+These environment variables configure the OpenTelemetry integration for metrics and distributed tracing.
+
+### Monitoring Stack
+
+The docker-compose setup includes a complete monitoring stack:
+
+- **OpenTelemetry Collector**: Receives, processes, and exports telemetry data
+  - OTLP gRPC receiver: `http://localhost:4317`
+  - OTLP HTTP receiver: `http://localhost:4318`
+  - Prometheus exporter: `http://localhost:8889/metrics`
+
+- **Prometheus**: Time-series database for metrics storage
+  - Web UI: `http://localhost:9090`
+  - Scrapes metrics from MessageWorkerPool and OpenTelemetry Collector
+
+- **Jaeger**: Distributed tracing backend
+  - UI: `http://localhost:16686`
+  - Collector endpoint: `http://localhost:14268`
+
+### Available Metrics
+
+MessageWorkerPool exposes the following metrics:
+
+- **Message Processing Metrics**:
+  - `messageworkerpool.tasks.processing`: Current number of tasks being processed
+  - `messageworkerpool.tasks.processed.total`: Total number of tasks processed
+  - `messageworkerpool.tasks.succeeded`: Successfully processed tasks
+  - `messageworkerpool.tasks.failed`: Failed tasks
+
+- **Worker Pool Metrics**:
+  - `messageworkerpool.workers.active`: Number of active workers
+  - `messageworkerpool.workers.idle`: Number of idle workers
+
+- **Performance Metrics** (when enabled):
+  - Runtime instrumentation: GC, thread pool, and memory metrics
+  - Process instrumentation: CPU and memory usage
+
+### Telemetry Architecture
+
+The telemetry system uses a provider-based architecture:
+
+1. **TelemetryManager**: Central telemetry coordinator that provides a unified interface
+2. **OpenTelemetryProvider**: OpenTelemetry implementation of the telemetry provider
+3. **TaskProcessingTelemetry**: AOP-based telemetry wrapper for task processing operations
+4. **TraceContextPropagation**: W3C trace context extraction and injection
+
+### Configuration Files
+
+**OpenTelemetry Collector Configuration** (`monitoring/otel-collector-config.yaml`):
+- Configures receivers (OTLP gRPC/HTTP)
+- Defines processors (batch, resource attributes)
+- Sets up exporters (Prometheus, Jaeger, debug)
+- Establishes telemetry pipelines for metrics, traces, and logs
+
+**Prometheus Configuration** (`monitoring/prometheus.yml`):
+- Scrapes OpenTelemetry Collector at `otel-collector:8889`
+- Scrapes MessageWorkerPool application at `workersample:9464`
+- Configures scrape intervals and retention policies
 
 ## Program Structure
 
@@ -63,40 +162,84 @@ Here is the sample code for creating and configuring a worker pool that interact
 ### RabbitMq example code
 
 ```c#
+using Microsoft.Extensions.DependencyInjection;
+using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.Extensions;
+using MessageWorkerPool.OpenTelemetry.Extensions;
+using Microsoft.AspNetCore.Builder;
+using OpenTelemetry.Exporter;
+
 public class Program
 {
     public static async Task Main(string[] args)
     {
-        CreateHostBuilder(args).Build().Run();
+        var builder = WebApplication.CreateBuilder(args);
+
+        // Configure logging
+        builder.Logging.ClearProviders();
+        builder.Logging.AddConsole();
+
+        // Add MessageWorkerPool telemetry with OpenTelemetry
+        builder.Services.AddMessageWorkerPoolTelemetry(options =>
+        {
+            options.ServiceName = "MessageWorkerPool.RabbitMQ.Example";
+            options.ServiceVersion = "1.0.0";
+            options.EnableRuntimeInstrumentation = true;
+            options.EnableProcessInstrumentation = true;
+
+            // Configure metrics with OTLP exporter and Prometheus
+            options.ConfigureMetrics = metrics =>
+            {
+                metrics.AddOtlpExporter(otlpOptions =>
+                {
+                    otlpOptions.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
+                    otlpOptions.Protocol = OtlpExportProtocol.Grpc;
+                });
+                metrics.AddPrometheusExporter();
+            };
+
+            // Configure tracing with OTLP exporter
+            options.ConfigureTracing = tracing =>
+            {
+                tracing.AddOtlpExporter(otlpOptions =>
+                {
+                    otlpOptions.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
+                    otlpOptions.Protocol = OtlpExportProtocol.Grpc;
+                });
+            };
+        });
+
+        // Add RabbitMQ Worker Pool
+        builder.Services.AddRabbitMqWorkerPool(new RabbitMqSetting
+        {
+            UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
+            Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
+            HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME") ?? "localhost",
+            Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort)5672,
+            PrefetchTaskCount = 3
+        }, new WorkerPoolSetting()
+        {
+            WorkerUnitCount = 9,
+            CommandLine = "dotnet",
+            Arguments = @"./ProcessBin/WorkerProcessSample.dll",
+            QueueName = Environment.GetEnvironmentVariable("QUEUENAME") ?? "worker-queue",
+        });
+
+        var app = builder.Build();
+
+        // Map Prometheus metrics endpoint
+        app.MapPrometheusScrapingEndpoint();
+
+        // Configure URL for metrics endpoint
+        app.Urls.Add("http://*:9464");
+
+        await app.RunAsync();
     }
-
-    public static IHostBuilder CreateHostBuilder(string[] args) =>
-        Host.CreateDefaultBuilder(args)
-            .ConfigureLogging(logging =>
-            {
-                logging.ClearProviders();
-                logging.AddConsole(options => {
-                    options.FormatterName = ConsoleFormatterNames.Simple;
-                });
-                logging.Services.Configure<SimpleConsoleFormatterOptions>(options => {
-                    options.IncludeScopes = true;
-                    options.TimestampFormat = " yyyy-MM-dd HH:mm:ss ";
-                });
-            }).AddRabbitMqWorkerPool(new RabbitMqSetting
-            {
-                UserName = Environment.GetEnvironmentVariable("USERNAME") ?? "guest",
-                Password = Environment.GetEnvironmentVariable("PASSWORD") ?? "guest",
-                HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOSTNAME"),
-                Port = ushort.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out ushort p) ? p : (ushort) 5672,
-                PrefetchTaskCount = 3
-            }, new WorkerPoolSetting() { WorkerUnitCount = 9, CommandLine = "dotnet", Arguments = @"./ProcessBin/WorkerProcessSample.dll", QueueName = Environment.GetEnvironmentVariable("QUEUENAME"), }
-            );
-
 }
 ```
 
 1. **Scalability**
-   - Scaling is achieved by increasing the `WorkerUnitCount` & `PrefetchTaskCount` determined how many amount of fetching message from rabbitMQ at same time.
+   - Scaling is achieved by increasing the `WorkerUnitCount` and `PrefetchTaskCount` parameters. `WorkerUnitCount` determines how many worker processes are spawned, while `PrefetchTaskCount` determines how many messages to fetch from RabbitMQ at the same time.
 
 2. **Decoupling**
    - RabbitMQ acts as a message broker, decoupling the producers of messages from the consumers (workers). This makes it easier to manage workloads independently.
@@ -106,6 +249,9 @@ public class Program
 
 4. **Reusable Workers**
    - Worker processes are defined by the `CommandLine` and `Arguments`, making it easy to reuse or swap out the tasks performed by the workers.
+
+5. **Observability**
+   - OpenTelemetry integration provides comprehensive monitoring through distributed tracing and metrics collection, enabling real-time visibility into worker pool performance and message processing workflows.
 
 ### Kafka example code
 

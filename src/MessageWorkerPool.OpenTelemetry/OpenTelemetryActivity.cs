@@ -49,8 +49,8 @@ namespace MessageWorkerPool.OpenTelemetry
             if (_disposed)
                 return;
 
-            var otelStatus = status == ActivityStatus.Ok ? ActivityStatusCode.Ok : 
-                           status == ActivityStatus.Error ? ActivityStatusCode.Error : 
+            var otelStatus = status == ActivityStatus.Ok ? ActivityStatusCode.Ok :
+                           status == ActivityStatus.Error ? ActivityStatusCode.Error :
                            ActivityStatusCode.Unset;
 
             _activity.SetStatus(otelStatus, description);
@@ -62,7 +62,6 @@ namespace MessageWorkerPool.OpenTelemetry
             if (_disposed || exception == null)
                 return;
 
-            // Record exception details as tags (RecordException not available in .NET Standard 2.0)
             SetTag("exception.type", exception.GetType().FullName);
             SetTag("exception.message", exception.Message);
             SetTag("exception.stacktrace", exception.StackTrace);
