@@ -17,6 +17,7 @@ namespace MessageWorkerPool.Test.Telemetry
         {
             // Clean up - reset to NoOp provider after each test
             TelemetryManager.SetProvider(NoOpTelemetryProvider.Instance);
+            TelemetryManager.SetTraceContextExtractor(null);
         }
 
         [Fact]
@@ -56,6 +57,25 @@ namespace MessageWorkerPool.Test.Telemetry
         }
 
         [Fact]
+        public void SetTraceContextExtractor_WithValidExtractor_ShouldSetExtractor()
+        {
+            // Arrange
+            Func<IDictionary<string, object>, ActivityContext> extractor = (headers) => default;
+
+            // Act & Assert - Should not throw
+            Action act = () => TelemetryManager.SetTraceContextExtractor(extractor);
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void SetTraceContextExtractor_WithNull_ShouldNotThrow()
+        {
+            // Act & Assert
+            Action act = () => TelemetryManager.SetTraceContextExtractor(null);
+            act.Should().NotThrow();
+        }
+
+        [Fact]
         public void StartWorkerInitActivity_ShouldCreateActivityWithCorrectTags()
         {
             // Arrange
@@ -88,12 +108,137 @@ namespace MessageWorkerPool.Test.Telemetry
 
             // Assert
             activity.Should().Be(mockActivity.Object);
-            mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>()), Times.Once);
+            mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, default(ActivityContext)), Times.Once);
             mockActivity.Verify(a => a.SetTag("worker.id", "worker-1"), Times.Once);
             mockActivity.Verify(a => a.SetTag("queue.name", "test-queue"), Times.Once);
             mockActivity.Verify(a => a.SetTag("correlation.id", "corr-123"), Times.Once);
             mockActivity.Verify(a => a.SetTag("messaging.system", "rabbitmq"), Times.Once);
             mockActivity.Verify(a => a.SetTag("messaging.destination", "test-queue"), Times.Once);
+            mockActivity.Verify(a => a.SetTag("messaging.operation", "process"), Times.Once);
+        }
+
+        [Fact]
+        public void StartTaskProcessingActivity_WithMessageHeaders_ShouldCreateActivityWithConsumerKind()
+        {
+            // Arrange
+            var mockActivity = new Mock<IActivity>();
+            var mockProvider = new Mock<ITelemetryProvider>();
+            mockProvider.Setup(p => p.StartActivity("Worker.ProcessTask", It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>())).Returns(mockActivity.Object);
+            TelemetryManager.SetProvider(mockProvider.Object);
+            
+            var messageHeaders = new Dictionary<string, object>
+            {
+                { "custom-header", "custom-value" }
+            };
+
+            // Act
+            var activity = TelemetryManager.StartTaskProcessingActivity("worker-1", "test-queue", "corr-123", messageHeaders);
+
+            // Assert
+            activity.Should().Be(mockActivity.Object);
+            mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, default(ActivityContext)), Times.Once);
+        }
+
+        [Fact]
+        public void StartTaskProcessingActivity_WithMessageHeadersAndExtractor_ShouldExtractParentContext()
+        {
+            // Arrange
+            var mockActivity = new Mock<IActivity>();
+            var mockProvider = new Mock<ITelemetryProvider>();
+            mockProvider.Setup(p => p.StartActivity("Worker.ProcessTask", It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>())).Returns(mockActivity.Object);
+            TelemetryManager.SetProvider(mockProvider.Object);
+            
+            var expectedContext = new ActivityContext(
+                ActivityTraceId.CreateFromString("0af7651916cd43dd8448eb211c80319c".AsSpan()),
+                ActivitySpanId.CreateFromString("b7ad6b7169203331".AsSpan()),
+                ActivityTraceFlags.Recorded);
+
+            var messageHeaders = new Dictionary<string, object>
+            {
+                { "traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01" }
+            };
+
+            Func<IDictionary<string, object>, ActivityContext> extractor = (headers) => expectedContext;
+            TelemetryManager.SetTraceContextExtractor(extractor);
+
+            // Act
+            var activity = TelemetryManager.StartTaskProcessingActivity("worker-1", "test-queue", "corr-123", messageHeaders);
+
+            // Assert
+            mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, expectedContext), Times.Once);
+        }
+
+        [Fact]
+        public void StartTaskProcessingActivity_WithExtractorThatThrows_ShouldUseDefaultContext()
+        {
+            // Arrange
+            var mockActivity = new Mock<IActivity>();
+            var mockProvider = new Mock<ITelemetryProvider>();
+            mockProvider.Setup(p => p.StartActivity("Worker.ProcessTask", It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>())).Returns(mockActivity.Object);
+            TelemetryManager.SetProvider(mockProvider.Object);
+            
+            var messageHeaders = new Dictionary<string, object>
+            {
+                { "invalid-header", "bad-value" }
+            };
+
+            Func<IDictionary<string, object>, ActivityContext> extractor = (headers) => 
+                throw new InvalidOperationException("Extraction failed");
+            
+            TelemetryManager.SetTraceContextExtractor(extractor);
+
+            // Act
+            var activity = TelemetryManager.StartTaskProcessingActivity("worker-1", "test-queue", "corr-123", messageHeaders);
+
+            // Assert - Should use default context instead of throwing
+            mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, default(ActivityContext)), Times.Once);
+        }
+
+        [Fact]
+        public void StartTaskProcessingActivity_WithNullMessageHeaders_ShouldUseDefaultContext()
+        {
+            // Arrange
+            var mockActivity = new Mock<IActivity>();
+            var mockProvider = new Mock<ITelemetryProvider>();
+            mockProvider.Setup(p => p.StartActivity("Worker.ProcessTask", It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>())).Returns(mockActivity.Object);
+            TelemetryManager.SetProvider(mockProvider.Object);
+
+            Func<IDictionary<string, object>, ActivityContext> extractor = (headers) => 
+                new ActivityContext(
+                    ActivityTraceId.CreateFromString("0af7651916cd43dd8448eb211c80319c".AsSpan()),
+                    ActivitySpanId.CreateFromString("b7ad6b7169203331".AsSpan()),
+                    ActivityTraceFlags.Recorded);
+            
+            TelemetryManager.SetTraceContextExtractor(extractor);
+
+            // Act
+            var activity = TelemetryManager.StartTaskProcessingActivity("worker-1", "test-queue", "corr-123", null);
+
+            // Assert - Extractor should not be called when messageHeaders is null
+            mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, default(ActivityContext)), Times.Once);
+        }
+
+        [Fact]
+        public void StartTaskProcessingActivity_WithoutExtractor_ShouldUseDefaultContext()
+        {
+            // Arrange
+            var mockActivity = new Mock<IActivity>();
+            var mockProvider = new Mock<ITelemetryProvider>();
+            mockProvider.Setup(p => p.StartActivity("Worker.ProcessTask", It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>())).Returns(mockActivity.Object);
+            TelemetryManager.SetProvider(mockProvider.Object);
+
+            var messageHeaders = new Dictionary<string, object>
+            {
+                { "traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01" }
+            };
+
+            // Don't set extractor
+
+            // Act
+            var activity = TelemetryManager.StartTaskProcessingActivity("worker-1", "test-queue", "corr-123", messageHeaders);
+
+            // Assert - Should use default context when no extractor is set
+            mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, default(ActivityContext)), Times.Once);
         }
 
         [Fact]
@@ -169,6 +314,16 @@ namespace MessageWorkerPool.Test.Telemetry
 
             // Act
             Action act = () => TelemetryManager.RecordException(mockActivity.Object, null);
+
+            // Assert
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void RecordException_WithBothNull_ShouldNotThrow()
+        {
+            // Act
+            Action act = () => TelemetryManager.RecordException(null, null);
 
             // Assert
             act.Should().NotThrow();
@@ -274,6 +429,36 @@ namespace MessageWorkerPool.Test.Telemetry
             // Assert
             activity.Should().NotBeNull();
             activity.Should().BeOfType<NoOpActivity>();
+        }
+
+        [Fact]
+        public void StartPoolInitActivity_WithNullActivityFromProvider_ShouldHandleGracefully()
+        {
+            // Arrange
+            var mockProvider = new Mock<ITelemetryProvider>();
+            mockProvider.Setup(p => p.StartActivity("WorkerPool.Init", It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>())).Returns((IActivity)null);
+            TelemetryManager.SetProvider(mockProvider.Object);
+
+            // Act
+            var activity = TelemetryManager.StartPoolInitActivity(5, "test-queue");
+
+            // Assert
+            activity.Should().BeNull();
+        }
+
+        [Fact]
+        public void StartShutdownActivity_WithNullActivityFromProvider_ShouldHandleGracefully()
+        {
+            // Arrange
+            var mockProvider = new Mock<ITelemetryProvider>();
+            mockProvider.Setup(p => p.StartActivity("Worker.Shutdown", It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>())).Returns((IActivity)null);
+            TelemetryManager.SetProvider(mockProvider.Object);
+
+            // Act
+            var activity = TelemetryManager.StartShutdownActivity("worker-1");
+
+            // Assert
+            activity.Should().BeNull();
         }
     }
 }
