@@ -230,7 +230,7 @@ namespace MessageWorkerPool.Test.Telemetry
             _mockMetrics.Verify(m => m.RecordTaskRejected("test-queue", "worker-1"), Times.Once);
             _mockMetrics.Verify(m => m.RecordTaskDuration(It.IsAny<double>(), "test-queue", "worker-1"), Times.Once);
             _mockActivity.Verify(a => a.SetTag("message.status", "IGNORE_MESSAGE"), Times.Once);
-            _mockActivity.Verify(a => a.SetStatus(ActivityStatus.Error, "Message ignored"), Times.Once);
+            _mockActivity.Verify(a => a.SetStatus(ActivityStatus.Ok, null));
         }
 
         [Fact]

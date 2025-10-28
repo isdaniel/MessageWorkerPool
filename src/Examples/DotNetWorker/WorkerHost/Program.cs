@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging.Console;
 using Microsoft.AspNetCore.Builder;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
 
 namespace WorkerHost
 {
@@ -42,7 +43,8 @@ namespace WorkerHost
                 {
                     metrics.AddOtlpExporter(otlpOptions =>
                     {
-                        otlpOptions.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4317");
+                        otlpOptions.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
+                        otlpOptions.Protocol = GetOtlpProtocol();
                     });
                     metrics.AddPrometheusExporter(prometheusOptions =>
                     {
@@ -55,7 +57,8 @@ namespace WorkerHost
                 {
                     tracing.AddOtlpExporter(otlpOptions =>
                     {
-                        otlpOptions.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT") ?? "http://localhost:4317");
+                        otlpOptions.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
+                        otlpOptions.Protocol = GetOtlpProtocol();
                     });
                 };
             });
@@ -84,6 +87,21 @@ namespace WorkerHost
             app.Urls.Add("http://*:9464");
 
             await app.RunAsync();
+        }
+
+        /// <summary>
+        /// Parses the OTLP protocol from the OTEL_EXPORTER_OTLP_PROTOCOL environment variable.
+        /// </summary>
+        /// <returns>The OTLP export protocol (defaults to Grpc if not specified or invalid).</returns>
+        private static OtlpExportProtocol GetOtlpProtocol()
+        {
+            var protocol = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_PROTOCOL");
+            return protocol?.ToLower() switch
+            {
+                "http/protobuf" => OtlpExportProtocol.HttpProtobuf,
+                "grpc" => OtlpExportProtocol.Grpc,
+                _ => OtlpExportProtocol.Grpc // Default
+            };
         }
     }
 }

@@ -5,7 +5,7 @@ services:
     hostname: rabbitmq-server
     restart: always
     ports:
-      - "8888:15672"
+      - "15672:15672"
       - "5672:5672"
     healthcheck:
       test: [ "CMD", "rabbitmqctl", "status"]
@@ -110,7 +110,7 @@ services:
     ports:
       - "4317:4317"     # OTLP gRPC receiver
       - "4318:4318"     # OTLP HTTP receiver
-      - "8887:8888"     # Prometheus metrics (avoiding conflict with RabbitMQ)
+      - "8888:8888"     # Prometheus metrics
       - "8889:8889"     # Prometheus exporter metrics
     depends_on:
       - prometheus

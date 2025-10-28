@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 
 namespace MessageWorkerPool.OpenTelemetry
 {
@@ -93,7 +94,7 @@ namespace MessageWorkerPool.OpenTelemetry
                 return str;
 
             if (value is byte[] bytes)
-                return System.Text.Encoding.UTF8.GetString(bytes);
+                return Encoding.UTF8.GetString(bytes);
 
             return value.ToString();
         }

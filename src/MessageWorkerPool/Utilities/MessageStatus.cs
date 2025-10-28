@@ -12,6 +12,7 @@ namespace MessageWorkerPool.Utilities
     public enum MessageStatus : short {
         IGNORE_MESSAGE = -1,
         MESSAGE_DONE = 200,
-        MESSAGE_DONE_WITH_REPLY = 201
+        MESSAGE_DONE_WITH_REPLY = 201,
+        UNKNOWN_ERROR = 500
     }
 }
