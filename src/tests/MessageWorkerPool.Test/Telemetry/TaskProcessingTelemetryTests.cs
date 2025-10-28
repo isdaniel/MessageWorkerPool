@@ -66,6 +66,69 @@ namespace MessageWorkerPool.Test.Telemetry
         }
 
         [Fact]
+        public void Constructor_WithMessageHeaders_ShouldPassHeadersToActivityCreation()
+        {
+            // Arrange
+            var messageHeaders = new Dictionary<string, object>
+            {
+                { "traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01" },
+                { "custom-header", "custom-value" }
+            };
+
+            // Act
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, messageHeaders);
+
+            // Assert
+            _mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, It.IsAny<ActivityContext>()), Times.Once);
+            _mockMetrics.Verify(m => m.IncrementProcessingTasks(), Times.Once);
+        }
+
+        [Fact]
+        public void Constructor_WithMessageHeadersAndContextExtractor_ShouldExtractParentContext()
+        {
+            // Arrange
+            var messageHeaders = new Dictionary<string, object>
+            {
+                { "traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01" }
+            };
+            
+            var expectedContext = new ActivityContext(
+                ActivityTraceId.CreateFromString("0af7651916cd43dd8448eb211c80319c".AsSpan()),
+                ActivitySpanId.CreateFromString("b7ad6b7169203331".AsSpan()),
+                ActivityTraceFlags.Recorded);
+
+            Func<IDictionary<string, object>, ActivityContext> contextExtractor = (headers) => expectedContext;
+            TelemetryManager.SetTraceContextExtractor(contextExtractor);
+
+            // Act
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, messageHeaders);
+
+            // Assert
+            _mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, expectedContext), Times.Once);
+        }
+
+        [Fact]
+        public void Constructor_WithContextExtractorThatThrows_ShouldContinueWithoutParentContext()
+        {
+            // Arrange
+            var messageHeaders = new Dictionary<string, object>
+            {
+                { "invalid-header", "bad-value" }
+            };
+
+            Func<IDictionary<string, object>, ActivityContext> contextExtractor = (headers) => 
+                throw new InvalidOperationException("Context extraction failed");
+            
+            TelemetryManager.SetTraceContextExtractor(contextExtractor);
+
+            // Act & Assert - Should not throw
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, messageHeaders);
+            
+            // Should still create activity with default context
+            _mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, It.IsAny<ActivityContext>()), Times.Once);
+        }
+
+        [Fact]
         public void SetTag_ShouldDelegateToActivity()
         {
             // Arrange
@@ -76,6 +139,22 @@ namespace MessageWorkerPool.Test.Telemetry
 
             // Assert
             _mockActivity.Verify(a => a.SetTag("custom.tag", "custom.value"), Times.Once);
+        }
+
+        [Fact]
+        public void SetTag_WithNullActivity_ShouldNotThrow()
+        {
+            // Arrange
+            _mockProvider.Setup(p => p.StartActivity(It.IsAny<string>(), It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>()))
+                .Returns((IActivity)null);
+            
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+
+            // Act
+            Action act = () => telemetry.SetTag("custom.tag", "custom.value");
+
+            // Assert
+            act.Should().NotThrow();
         }
 
         [Fact]
@@ -125,6 +204,20 @@ namespace MessageWorkerPool.Test.Telemetry
         }
 
         [Fact]
+        public void RecordSuccess_WithNullMetrics_ShouldNotThrow()
+        {
+            // Arrange
+            _mockProvider.Setup(p => p.Metrics).Returns((IMetrics)null);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+
+            // Act
+            Action act = () => telemetry.RecordSuccess(MessageStatus.MESSAGE_DONE);
+
+            // Assert
+            act.Should().NotThrow();
+        }
+
+        [Fact]
         public void RecordRejection_ShouldRecordMetricsAndSetStatus()
         {
             // Arrange
@@ -152,6 +245,20 @@ namespace MessageWorkerPool.Test.Telemetry
 
             // Assert
             _mockMetrics.Verify(m => m.RecordTaskRejected(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [Fact]
+        public void RecordRejection_WithNullMetrics_ShouldNotThrow()
+        {
+            // Arrange
+            _mockProvider.Setup(p => p.Metrics).Returns((IMetrics)null);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+
+            // Act
+            Action act = () => telemetry.RecordRejection(MessageStatus.IGNORE_MESSAGE);
+
+            // Assert
+            act.Should().NotThrow();
         }
 
         [Fact]
@@ -201,6 +308,38 @@ namespace MessageWorkerPool.Test.Telemetry
         }
 
         [Fact]
+        public void RecordFailure_WithNullMetrics_ShouldNotThrow()
+        {
+            // Arrange
+            _mockProvider.Setup(p => p.Metrics).Returns((IMetrics)null);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            var exception = new InvalidOperationException("Test exception");
+
+            // Act
+            Action act = () => telemetry.RecordFailure(exception);
+
+            // Assert
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void RecordFailure_WithNullActivity_ShouldNotThrow()
+        {
+            // Arrange
+            _mockProvider.Setup(p => p.StartActivity(It.IsAny<string>(), It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>()))
+                .Returns((IActivity)null);
+            
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            var exception = new InvalidOperationException("Test exception");
+
+            // Act
+            Action act = () => telemetry.RecordFailure(exception);
+
+            // Assert
+            act.Should().NotThrow();
+        }
+
+        [Fact]
         public void Dispose_ShouldDecrementProcessingTasksAndDisposeActivity()
         {
             // Arrange
@@ -228,6 +367,36 @@ namespace MessageWorkerPool.Test.Telemetry
             // Assert
             _mockMetrics.Verify(m => m.DecrementProcessingTasks(), Times.Once);
             _mockActivity.Verify(a => a.Dispose(), Times.Once);
+        }
+
+        [Fact]
+        public void Dispose_WithNullMetrics_ShouldNotThrow()
+        {
+            // Arrange
+            _mockProvider.Setup(p => p.Metrics).Returns((IMetrics)null);
+            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+
+            // Act
+            Action act = () => telemetry.Dispose();
+
+            // Assert
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void Dispose_WithNullActivity_ShouldNotThrow()
+        {
+            // Arrange
+            _mockProvider.Setup(p => p.StartActivity(It.IsAny<string>(), It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>()))
+                .Returns((IActivity)null);
+            
+            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+
+            // Act
+            Action act = () => telemetry.Dispose();
+
+            // Assert
+            act.Should().NotThrow();
         }
 
         [Fact]
