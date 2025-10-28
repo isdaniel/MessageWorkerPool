@@ -38,7 +38,7 @@ services:
     #stop_grace_period: 120s
     env_file: ./env/.env
     ports:
-      - "9464:9464"
+      - "9464-9474:9464"
     depends_on:
       - publisher
       - otel-collector

@@ -3,8 +3,6 @@ global:
   evaluation_interval: 15s
 
 rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
 
 scrape_configs:
   # OpenTelemetry Collector metrics
@@ -14,15 +12,30 @@ scrape_configs:
     scrape_interval: 10s
     metrics_path: /metrics
 
-  # MessageWorkerPool application metrics
+  # MessageWorkerPool application metrics - Multi-worker support
+  # Docker Compose creates network aliases that resolve to all container IPs
   - job_name: 'messageworkerpool'
-    static_configs:
-      - targets: ['workersample:9464']
+    dns_sd_configs:
+      - names:
+          - 'workersample'
+        type: 'A'
+        port: 9464
+        refresh_interval: 15s
     scrape_interval: 10s
     metrics_path: /metrics
     honor_timestamps: false
     scrape_protocols:
       - PrometheusText0.0.4
+    # Relabel to add instance information
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __tmp_address
+      - source_labels: [__tmp_address]
+        regex: '(.+):.*'
+        target_label: container_ip
+        replacement: '$1'
+      - source_labels: [__address__]
+        target_label: instance
 
   # Prometheus self-monitoring
   - job_name: 'prometheus'

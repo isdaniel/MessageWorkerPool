@@ -31,10 +31,14 @@ namespace WorkerHost
             });
 
             // Add MessageWorkerPool telemetry with OpenTelemetry
+            var hostname = Environment.GetEnvironmentVariable("HOSTNAME") ?? System.Net.Dns.GetHostName();
+            var instanceId = Environment.GetEnvironmentVariable("INSTANCE_ID") ?? hostname;
+
             builder.Services.AddMessageWorkerPoolTelemetry(options =>
             {
                 options.ServiceName = "MessageWorkerPool.Example.Host";
                 options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = instanceId;  // Add instance identifier
                 options.EnableRuntimeInstrumentation = true;
                 options.EnableProcessInstrumentation = true;
 
