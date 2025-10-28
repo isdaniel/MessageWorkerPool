@@ -8,6 +8,7 @@ using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 using System.IO.Pipes;
 using MessageWorkerPool.IO;
+using MessageWorkerPool.Telemetry;
 
 namespace MessageWorkerPool
 {
@@ -35,8 +36,20 @@ namespace MessageWorkerPool
         };
 
         protected IProcessWrapper Process { get; private set; }
+        
+        /// <summary>
+        /// Gets the process ID for telemetry purposes.
+        /// </summary>
+        public int? ProcessId => Process?.Id;
+
         protected readonly WorkerPoolSetting _workerSetting;
         protected AutoResetEvent _receivedWaitEvent = new AutoResetEvent(false);
+
+        /// <summary>
+        /// Gets the worker ID (process ID as string).
+        /// </summary>
+        public string WorkerId => Process?.Id.ToString() ?? "unknown";
+
         protected WorkerBase(WorkerPoolSetting workerSetting, ILogger logger)
         {
             _workerSetting = workerSetting;
@@ -57,9 +70,21 @@ namespace MessageWorkerPool
             {
                 Logger.LogInformation("Executing GracefulShutDownAsync!");
                 _status = WorkerStatus.Stopping;
-                await GracefulReleaseAsync(token);
-                await CloseProcess();
-                _status = WorkerStatus.Stopped;
+                
+                using (var activity = TelemetryManager.StartShutdownActivity(WorkerId))
+                {
+                    try
+                    {
+                        await GracefulReleaseAsync(token);
+                        await CloseProcess();
+                        _status = WorkerStatus.Stopped;
+                    }
+                    catch (Exception ex)
+                    {
+                        TelemetryManager.RecordException(activity, ex);
+                        throw;
+                    }
+                }
             }
 
             Dispose();
@@ -96,24 +121,38 @@ namespace MessageWorkerPool
         /// <param name="token">Cancellation token for stopping the initialization.</param>
         public async Task InitWorkerAsync(CancellationToken token)
         {
-            Process = CreateProcess(new ProcessStartInfo()
+            using (var activity = TelemetryManager.StartWorkerInitActivity("pending", _workerSetting.QueueName))
             {
-                RedirectStandardInput = true,
-                RedirectStandardOutput = false,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                FileName = _workerSetting.CommandLine,
-                Arguments = _workerSetting.Arguments,
-                CreateNoWindow = true,
-                StandardErrorEncoding = Encoding.UTF8
-            });
+                try
+                {
+                    Process = CreateProcess(new ProcessStartInfo()
+                    {
+                        RedirectStandardInput = true,
+                        RedirectStandardOutput = false,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        FileName = _workerSetting.CommandLine,
+                        Arguments = _workerSetting.Arguments,
+                        CreateNoWindow = true,
+                        StandardErrorEncoding = Encoding.UTF8
+                    });
 
-            StartProcess();
+                    StartProcess();
 
-            using (Logger.BeginScope($"[Pid: {Process.Id}]"))
-            {
-                await InitialDataStreamPipeAsync().ConfigureAwait(false);
-                SetupMessageQueueSetting(token);
+                    using (Logger.BeginScope($"[Pid: {Process.Id}]"))
+                    {
+                        activity?.SetTag("worker.id", WorkerId);
+                        activity?.SetTag("process.id", Process.Id);
+                        
+                        await InitialDataStreamPipeAsync().ConfigureAwait(false);
+                        SetupMessageQueueSetting(token);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    TelemetryManager.RecordException(activity, ex);
+                    throw;
+                }
             }
         }
 
@@ -216,7 +255,6 @@ namespace MessageWorkerPool
         /// </summary>
         protected virtual IProcessWrapper CreateProcess(ProcessStartInfo processStartInfo)
         {
-
             IProcessWrapper process = new ProcessWrapper(new Process
             {
                 StartInfo = processStartInfo

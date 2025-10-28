@@ -1,0 +1,37 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # OpenTelemetry Collector metrics
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8889']
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  # MessageWorkerPool application metrics
+  - job_name: 'messageworkerpool'
+    static_configs:
+      - targets: ['workersample:9464']
+    scrape_interval: 10s
+    metrics_path: /metrics
+    honor_timestamps: false
+    scrape_protocols:
+      - PrometheusText0.0.4
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # RabbitMQ metrics (if enabled)
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['myrabbitmq:15692']
+    scrape_interval: 30s
+    metrics_path: /metrics

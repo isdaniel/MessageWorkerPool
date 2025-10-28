@@ -8,6 +8,7 @@ using Confluent.Kafka;
 using MessageWorkerPool.Extensions;
 using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
+using MessageWorkerPool.Telemetry;
 
 namespace MessageWorkerPool.KafkaMq
 {
@@ -68,7 +69,9 @@ namespace MessageWorkerPool.KafkaMq
                 {
                     // Consume a message from Kafka.
                     var result = _consumer.Consume(token);
+                    TelemetryManager.Metrics?.IncrementProcessingTasks();
                     await HandleMessageAsync(result).ConfigureAwait(false);
+                    TelemetryManager.Metrics?.DecrementProcessingTasks();
                 }
                 catch (OperationCanceledException)
                 {
@@ -89,25 +92,47 @@ namespace MessageWorkerPool.KafkaMq
         {
             // Extract message headers.
             var headers = result.Message.Headers.ToDictionary(x => x.Key, x => Encoding.UTF8.GetString(x.GetValueBytes()));
+            var correlationId = headers.TryGetValueOrDefault("CorrelationId");
 
-            Logger.LogDebug($"received message:{result.Message.Value}");
-
-            // Write the received message into the data stream.
-            await DataStreamWriteAsync(new MessageInputTask
+            using (var telemetry = new TaskProcessingTelemetry(WorkerId, _workerSetting.QueueName, correlationId, Logger))
             {
-                Message = result.Message.Value,
-                CorrelationId = headers.TryGetValueOrDefault("CorrelationId"),
-                Headers = headers,
-                OriginalQueueName = _workerSetting.QueueName,
-            });
+                try
+                {
+                    Logger.LogDebug($"received message:{result.Message.Value}");
 
-            // Read processed data from the stream.
-            var taskOutput = await DataStreamReadAsync<MessageOutputTask>();
+                    telemetry.SetTag("messaging.system", "kafka");
+                    telemetry.SetTag("messaging.kafka.partition", result.Partition.Value);
+                    telemetry.SetTag("messaging.kafka.offset", result.Offset.Value);
 
-            // If the message processing is completed, handle the successful message.
-            if (_messageDoneMap.Contains(taskOutput.Status))
-            {
-                await HandleSuccessfulMessage(result, headers, taskOutput);
+                    // Write the received message into the data stream.
+                    await DataStreamWriteAsync(new MessageInputTask
+                    {
+                        Message = result.Message.Value,
+                        CorrelationId = correlationId,
+                        Headers = headers,
+                        OriginalQueueName = _workerSetting.QueueName,
+                    });
+
+                    // Read processed data from the stream.
+                    var taskOutput = await DataStreamReadAsync<MessageOutputTask>();
+
+                    // If the message processing is completed, handle the successful message.
+                    if (_messageDoneMap.Contains(taskOutput.Status))
+                    {
+                        await HandleSuccessfulMessage(result, headers, taskOutput);
+                        telemetry.RecordSuccess(taskOutput.Status);
+                    }
+                    else
+                    {
+                        telemetry.RecordRejection(taskOutput.Status);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    telemetry.RecordFailure(ex);
+                    Logger.LogError(ex, "Error handling Kafka message");
+                    throw;
+                }
             }
         }
 

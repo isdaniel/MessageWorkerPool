@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\MessageWorkerPool\MessageWorkerPool.csproj" />
+    <ProjectReference Include="..\..\MessageWorkerPool.OpenTelemetry\MessageWorkerPool.OpenTelemetry.csproj" />
   </ItemGroup>
 
 </Project>
