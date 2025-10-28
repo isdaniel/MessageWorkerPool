@@ -40,7 +40,7 @@ namespace MessageWorkerPool
         /// <summary>
         /// Timer for periodic health status updates.
         /// </summary>
-        private System.Threading.Timer _healthCheckTimer;
+        private Timer _healthCheckTimer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="WorkerPoolBase"/> class.
@@ -64,7 +64,7 @@ namespace MessageWorkerPool
             TelemetryManager.Metrics?.SetActiveWorkers(0);
             
             // Start periodic health check updates (every 5 seconds)
-            _healthCheckTimer = new System.Threading.Timer(UpdateHealthMetrics, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            _healthCheckTimer = new Timer(_ => UpdateHealthMetrics(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
         }
 
 
@@ -96,7 +96,7 @@ namespace MessageWorkerPool
                     }
                     
                     TelemetryManager.Metrics?.SetActiveWorkers(Workers.Count);
-                    UpdateHealthMetrics(null);
+                    UpdateHealthMetrics();
                     
                     _logger.LogInformation($"Worker pool initialized with {Workers.Count} workers for queue '{_workerSetting.QueueName}'");
                 }
@@ -129,7 +129,7 @@ namespace MessageWorkerPool
         /// <summary>
         /// Updates health metrics based on current worker statuses.
         /// </summary>
-        private void UpdateHealthMetrics(object state)
+        private void UpdateHealthMetrics()
         {
             try
             {

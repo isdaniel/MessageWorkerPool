@@ -5,6 +5,7 @@ using MessageWorkerPool.OpenTelemetry;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Diagnostics;
+using System.Collections.Concurrent;
 
 namespace MessageWorkerPool.Test
 {
@@ -116,7 +117,7 @@ namespace MessageWorkerPool.Test
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 2, QueueName = "test-queue" };
             var workerPool = new TestWorkerPool(mockWorkerSetting, mockLoggerFactory.Object);
 
-            var activities = new List<Activity>();
+            var activities = new ConcurrentBag<Activity>();
             using var listener = new ActivityListener
             {
                 ShouldListenTo = source => source.Name == "MessageWorkerPool",
@@ -156,7 +157,7 @@ namespace MessageWorkerPool.Test
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 1, QueueName = "test-queue" };
             var workerPool = new TestWorkerPoolWithFailingWorker(mockWorkerSetting, mockLoggerFactory.Object);
 
-            var activities = new List<Activity>();
+            var activities = new ConcurrentBag<Activity>();
             using var listener = new ActivityListener
             {
                 ShouldListenTo = source => source.Name == "MessageWorkerPool",
@@ -166,30 +167,22 @@ namespace MessageWorkerPool.Test
             };
             ActivitySource.AddActivityListener(listener);
 
-            try
-            {
-                // Act
-                var act = async () => await workerPool.InitPoolAsync(CancellationToken.None);
+            var act = async () => await workerPool.InitPoolAsync(CancellationToken.None);
 
-                // Assert
-                await act.Should().ThrowAsync<InvalidOperationException>();
-                
-                // Check if we have any WorkerPool.Init activity (either started or stopped)
-                var poolInitActivity = activities.FirstOrDefault(a => a.OperationName == "WorkerPool.Init");
-                
-                // The activity should exist and have error status
-                if (poolInitActivity != null)
-                {
-                    poolInitActivity.Status.Should().Be(ActivityStatusCode.Error);
-                }
-                // If no activity was captured, that's also acceptable as the exception might prevent activity creation
-            }
-            finally
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>();
+
+            // Check if we have any WorkerPool.Init activity (either started or stopped)
+            var poolInitActivity = activities.FirstOrDefault(a => a.OperationName == "WorkerPool.Init");
+
+            // The activity should exist and have error status
+            if (poolInitActivity != null)
             {
-                // Clean up - reset to NoOp provider
-                TelemetryManager.SetProvider(MessageWorkerPool.Telemetry.NoOpTelemetryProvider.Instance);
-                openTelemetryProvider.Dispose();
+                poolInitActivity.Status.Should().Be(ActivityStatusCode.Error);
             }
+
+            TelemetryManager.SetProvider(NoOpTelemetryProvider.Instance);
+            openTelemetryProvider.Dispose();
         }
 
         [Fact]
