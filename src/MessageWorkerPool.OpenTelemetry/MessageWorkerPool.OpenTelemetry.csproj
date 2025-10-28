@@ -2,14 +2,17 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <OutputType>Library</OutputType>
     <PackageId>MessageWorkerPool.OpenTelemetry</PackageId>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Authors>Daniel_Shih</Authors>
     <PackageTags>C#,multiple-processes,Messaging,OpenTelemetry,Telemetry</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/isdaniel/MessageWorkerPool</PackageProjectUrl>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <PackageDescription>OpenTelemetry extensions for MessageWorkerPool providing metrics and tracing capabilities.</PackageDescription>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <Nullable>disable</Nullable>
   </PropertyGroup>
@@ -25,6 +28,10 @@
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.8.1" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.8.1"/>
     <PackageReference Include="OpenTelemetry.Instrumentation.Process" Version="1.12.0-beta.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
