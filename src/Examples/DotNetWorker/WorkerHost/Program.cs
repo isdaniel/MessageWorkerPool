@@ -38,7 +38,6 @@ namespace WorkerHost
             {
                 options.ServiceName = "MessageWorkerPool.Example.Host";
                 options.ServiceVersion = "1.0.0";
-                options.ServiceInstanceId = instanceId;  // Add instance identifier
                 options.EnableRuntimeInstrumentation = true;
                 options.EnableProcessInstrumentation = true;
 
