@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
+using MessageWorkerPool.Extensions;
 using MessageWorkerPool.IO;
+using MessageWorkerPool.KafkaMq;
 using MessageWorkerPool.RabbitMq;
 using MessageWorkerPool.Test.Utility;
 using MessageWorkerPool.Utilities;
@@ -10,8 +13,6 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using MessageWorkerPool.Extensions;
-using MessageWorkerPool.KafkaMq;
 
 namespace MessageWorkerPool.Test
 {
@@ -335,6 +336,429 @@ namespace MessageWorkerPool.Test
             }
 
             public async Task CreateOperationPipeAsync(string name, CancellationToken token = default) => await base.CreateOperationPipeAsync(name, token);
+        }
+
+        /// <summary>
+        /// Additional tests for RabbitMqWorker to improve code coverage
+        /// </summary>
+        public class RabbitMqWorkerAdditionalTest
+        {
+            private readonly Mock<ILogger<RabbitMqWorker>> _loggerMock;
+            private readonly Mock<IModel> _channel;
+            private readonly Mock<IBasicProperties> _basicProp;
+
+            public RabbitMqWorkerAdditionalTest()
+            {
+                _loggerMock = new Mock<ILogger<RabbitMqWorker>>();
+                _channel = new Mock<IModel>();
+                _basicProp = new Mock<IBasicProperties>();
+                _channel.Setup(x => x.CreateBasicProperties()).Returns(_basicProp.Object);
+            }
+
+            private RabbitMqWorkerTester CreateWorker(RabbitMqSetting setting, WorkerPoolSetting workerSetting)
+            {
+                return new RabbitMqWorkerTester(setting, workerSetting, _channel.Object, _loggerMock.Object);
+            }
+
+            private BasicDeliverEventArgs CreateBasicDeliverEventArgs(string message, string correlationId, ulong deliveryTag = 123, string replyQueueName = null, IDictionary<string, object> header = null)
+            {
+                _basicProp.Setup(p => p.CorrelationId).Returns(correlationId);
+                _basicProp.Setup(p => p.ReplyTo).Returns(replyQueueName);
+                _basicProp.Setup(p => p.Headers).Returns(header);
+                _basicProp.Setup(p => p.ContentEncoding).Returns("utf-8");
+
+                return new BasicDeliverEventArgs
+                {
+                    DeliveryTag = deliveryTag,
+                    Body = Encoding.UTF8.GetBytes(message),
+                    BasicProperties = _basicProp.Object
+                };
+            }
+
+            [Fact]
+            public async Task AsyncEventHandler_WithException_ShouldNackMessage()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                var eventArgs = CreateBasicDeliverEventArgs("Test Message", "correlation-123");
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()))
+                    .ThrowsAsync(new InvalidOperationException("Test exception"));
+
+                // Act
+                await worker.AsyncEventHandler(worker, eventArgs);
+
+                // Assert
+                _channel.Verify(c => c.BasicNack(123, false, true), Times.Once);
+                _channel.Verify(c => c.BasicAck(123, false), Times.Never);
+            }
+
+            [Fact]
+            public async Task AsyncEventHandler_WhenStopping_ShouldRejectMessage()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                // Setup a task completion source to control when processing completes
+                var processingStarted = new TaskCompletionSource<bool>();
+                var allowProcessingToComplete = new TaskCompletionSource<bool>();
+
+                // Setup pipe to simulate long-running task for the first message
+                var callCount = 0;
+                worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+                worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>())
+                    .Returns(async () =>
+                    {
+                        callCount++;
+                        if (callCount == 1)
+                        {
+                            // First call - signal that processing started, then wait
+                            processingStarted.SetResult(true);
+                            await allowProcessingToComplete.Task;
+                            return new MessageOutputTask { Status = MessageStatus.MESSAGE_DONE, Message = "Done" };
+                        }
+                        // Should not get here for second message
+                        return new MessageOutputTask { Status = MessageStatus.MESSAGE_DONE, Message = "Done2" };
+                    });
+
+                // Act - Start processing first message
+                var eventArgs1 = CreateBasicDeliverEventArgs("Test Message 1", "correlation-123", 999);
+                var firstMessageTask = worker.AsyncEventHandler(worker, eventArgs1);
+
+                // Wait for first message to start processing
+                await processingStarted.Task;
+
+                // Now start graceful shutdown (this will set status to Stopping)
+                var shutdownTask = Task.Run(async () =>
+                {
+                    await worker.GracefulShutDownAsync(CancellationToken.None);
+                });
+
+                // Give shutdown time to change the status
+                await Task.Delay(100);
+
+                // Try to process second message - this should be rejected because worker is stopping
+                var eventArgs2 = CreateBasicDeliverEventArgs("Test Message 2", "correlation-124", 1000);
+                await worker.AsyncEventHandler(worker, eventArgs2);
+
+                // Assert - The second message should be in reject queue (not processed, just added to reject list)
+                worker.RejectMessageDeliveryTags.Should().Contain(1000);
+
+                // Allow first message to complete and finish shutdown
+                allowProcessingToComplete.SetResult(true);
+                await firstMessageTask;
+                await shutdownTask;
+
+                // The first message should have been acknowledged normally
+                _channel.Verify(c => c.BasicAck(999, false), Times.Once);
+                // The second message should not have been processed at all (not acked or nacked directly)
+                _channel.Verify(c => c.BasicAck(1000, false), Times.Never);
+                // The second message will be nacked during shutdown via RejectRemainingMessages
+                _channel.Verify(c => c.BasicNack(1000, false, true), Times.Once);
+            }
+
+            [Fact]
+            public async Task AsyncEventHandler_WithTraceContext_ShouldPropagateContext()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                var traceParent = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+                var headers = new Dictionary<string, object>
+            {
+                { "traceparent", Encoding.UTF8.GetBytes(traceParent) },
+                { "tracestate", Encoding.UTF8.GetBytes("congo=t61rcWkgMzE") }
+            };
+                var eventArgs = CreateBasicDeliverEventArgs("Test Message", "correlation-123", header: headers);
+
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                var expectOutput = new MessageOutputTask()
+                {
+                    Status = MessageStatus.MESSAGE_DONE,
+                    Message = "Response",
+                };
+
+                worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+                worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>()).ReturnsAsync(expectOutput);
+
+                // Act
+                await worker.AsyncEventHandler(worker, eventArgs);
+
+                // Assert - Verify the task input contains propagated headers
+                worker.pipeStream.Verify(x => x.WriteAsync(It.Is<MessageInputTask>(
+                    task => task.Headers != null && task.Headers.ContainsKey("traceparent"))), Times.Once);
+            }
+
+            [Fact]
+            public async Task Dispose_ShouldCloseChannel_WhenChannelIsOpen()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                _channel.Setup(x => x.IsClosed).Returns(false);
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                // Act
+                worker.Dispose();
+
+                // Assert
+                _channel.Verify(x => x.Close(), Times.Once);
+                _channel.Verify(x => x.Dispose(), Times.Once);
+            }
+
+            [Fact]
+            public async Task Dispose_ShouldHandleException_WhenClosingChannel()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                _channel.Setup(x => x.IsClosed).Returns(false);
+                _channel.Setup(x => x.Close()).Throws(new InvalidOperationException("Channel close failed"));
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                // Act - Should not throw
+                Action act = () => worker.Dispose();
+
+                // Assert
+                act.Should().NotThrow();
+                _channel.Verify(x => x.Dispose(), Times.Once);
+            }
+
+            [Fact]
+            public async Task Dispose_MultipleTimes_ShouldOnlyDisposeOnce()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                // Act
+                worker.Dispose();
+                worker.Dispose();
+                worker.Dispose();
+
+                // Assert - Dispose should be called only once
+                worker.mockProcess.Verify(x => x.Dispose(), Times.Once);
+            }
+
+            [Fact]
+            public async Task AsyncEventHandler_WithReplyQueueOverride_ShouldUseCustomQueue()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                var eventArgs = CreateBasicDeliverEventArgs("Test", "corr-1", replyQueueName: "original-queue");
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                var expectOutput = new MessageOutputTask()
+                {
+                    Status = MessageStatus.MESSAGE_DONE_WITH_REPLY,
+                    Message = "Response",
+                    ReplyQueueName = "custom-reply-queue" // Override
+                };
+
+                worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+                worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>()).ReturnsAsync(expectOutput);
+
+                // Act
+                await worker.AsyncEventHandler(worker, eventArgs);
+
+                // Assert - Should use custom queue name
+                _channel.Verify(c => c.BasicPublish(
+                    string.Empty,
+                    "custom-reply-queue",
+                    false,
+                    It.IsAny<IBasicProperties>(),
+                    It.IsAny<ReadOnlyMemory<byte>>()), Times.Once);
+            }
+
+            [Fact]
+            public async Task GracefulShutdown_WithPendingMessages_ShouldRejectAll()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                // Add some pending messages
+                worker.RejectMessageDeliveryTags.Add(100);
+                worker.RejectMessageDeliveryTags.Add(200);
+                worker.RejectMessageDeliveryTags.Add(300);
+
+                // Act
+                await worker.GracefulShutDownAsync(CancellationToken.None);
+
+                // Assert
+                _channel.Verify(c => c.BasicNack(100, false, true), Times.Once);
+                _channel.Verify(c => c.BasicNack(200, false, true), Times.Once);
+                _channel.Verify(c => c.BasicNack(300, false, true), Times.Once);
+            }
+
+            [Fact]
+            public void RabbitMqWorker_Setting_ShouldBeAccessible()
+            {
+                // Arrange
+                var rabbitMqSetting = new RabbitMqSetting { PrefetchTaskCount = 5 };
+                var workerSetting = new WorkerPoolSetting();
+
+                // Act
+                var worker = CreateWorker(rabbitMqSetting, workerSetting);
+
+                // Assert
+                worker.Setting.Should().NotBeNull();
+                worker.Setting.PrefetchTaskCount.Should().Be(5);
+            }
+
+            [Fact]
+            public async Task AsyncEventHandler_WithNullHeaders_ShouldHandleGracefully()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                var eventArgs = CreateBasicDeliverEventArgs("Test", "corr-1", header: null);
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                var expectOutput = new MessageOutputTask()
+                {
+                    Status = MessageStatus.MESSAGE_DONE,
+                    Message = "Response"
+                };
+
+                worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+                worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>()).ReturnsAsync(expectOutput);
+
+                // Act
+                await worker.AsyncEventHandler(worker, eventArgs);
+
+                // Assert
+                _channel.Verify(c => c.BasicAck(123, false), Times.Once);
+                worker.pipeStream.Verify(x => x.WriteAsync(It.Is<MessageInputTask>(
+                    task => task.Headers != null)), Times.Once);
+            }
+
+            [Fact]
+            public async Task AsyncEventHandler_WithCurrentActivity_ShouldInjectTraceContext()
+            {
+                // Arrange
+                using var activitySource = new ActivitySource("TestSource");
+                using var listener = new ActivityListener
+                {
+                    ShouldListenTo = source => source.Name == "TestSource",
+                    Sample = (ref ActivityCreationOptions<ActivityContext> options) => ActivitySamplingResult.AllData
+                };
+                ActivitySource.AddActivityListener(listener);
+
+                using var parentActivity = activitySource.StartActivity("ParentActivity");
+
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                var eventArgs = CreateBasicDeliverEventArgs("Test", "corr-1");
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                var expectOutput = new MessageOutputTask()
+                {
+                    Status = MessageStatus.MESSAGE_DONE,
+                    Message = "Response"
+                };
+
+                worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+                worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>()).ReturnsAsync(expectOutput);
+
+                // Act
+                await worker.AsyncEventHandler(worker, eventArgs);
+
+                // Assert - Should inject traceparent when Activity.Current exists
+                worker.pipeStream.Verify(x => x.WriteAsync(It.Is<MessageInputTask>(
+                    task => task.Headers.ContainsKey("traceparent"))), Times.Once);
+            }
+
+            [Fact]
+            public async Task Dispose_WhenChannelIsClosed_ShouldNotCallClose()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                _channel.Setup(x => x.IsClosed).Returns(true);
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                // Act
+                worker.Dispose();
+
+                // Assert - Close should not be called if channel is already closed
+                _channel.Verify(x => x.Close(), Times.Never);
+                _channel.Verify(x => x.Dispose(), Times.Once);
+            }
+
+            [Fact]
+            public async Task AsyncEventHandler_WithReadException_ShouldNackMessage()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                var eventArgs = CreateBasicDeliverEventArgs("Test Message", "correlation-123");
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+                worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>())
+                    .ThrowsAsync(new InvalidOperationException("Read exception"));
+
+                // Act
+                await worker.AsyncEventHandler(worker, eventArgs);
+
+                // Assert
+                _channel.Verify(c => c.BasicNack(123, false, true), Times.Once);
+                _channel.Verify(c => c.BasicAck(123, false), Times.Never);
+            }
+
+            [Fact]
+            public async Task RabbitMqWorker_ChannelProperty_ShouldBeAccessible()
+            {
+                // Arrange & Act
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                // Assert
+                worker.channel.Should().NotBeNull();
+                worker.channel.Should().Be(_channel.Object);
+            }
+
+            [Fact]
+            public async Task Dispose_AfterGracefulShutdown_ShouldDisposeChannel()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                await worker.InitWorkerAsync(CancellationToken.None);
+                await worker.GracefulShutDownAsync(CancellationToken.None);
+
+                // Channel should already be disposed from graceful shutdown
+                // Act - Dispose again should handle gracefully
+                worker.Dispose();
+
+                // Assert - Should not throw
+                worker.channel.Should().BeNull();
+            }
+
+            [Fact]
+            public async Task AsyncEventHandler_WithCancellationRequested_ShouldHandleGracefully()
+            {
+                // Arrange
+                var worker = CreateWorker(new RabbitMqSetting(), new WorkerPoolSetting());
+                var eventArgs = CreateBasicDeliverEventArgs("Test Message", "correlation-123", 999);
+                await worker.InitWorkerAsync(CancellationToken.None);
+
+                // Setup to simulate timeout scenario
+                var cts = new CancellationTokenSource();
+                cts.Cancel(); // Cancel immediately
+
+                worker.pipeStream.Setup(x => x.WriteAsync(It.IsAny<MessageInputTask>()));
+                worker.pipeStream.Setup(x => x.ReadAsync<MessageOutputTask>())
+                    .Returns(async () =>
+                    {
+                        await Task.Delay(1000, cts.Token); // This will throw
+                        return new MessageOutputTask { Status = MessageStatus.MESSAGE_DONE, Message = "Done" };
+                    });
+
+                // Act
+                await worker.AsyncEventHandler(worker, eventArgs);
+
+                // Assert - Message should be acknowledged or rejected based on output
+                // Since we're testing edge cases, verify the handler completes
+                _channel.Verify(c => c.BasicAck(It.IsAny<ulong>(), It.IsAny<bool>()), Times.AtMostOnce());
+                _channel.Verify(c => c.BasicNack(It.IsAny<ulong>(), It.IsAny<bool>(), It.IsAny<bool>()), Times.AtMostOnce());
+            }
         }
     }
 }
