@@ -195,7 +195,6 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
                 options.ServiceName = "TestService";
                 options.ServiceVersion = "3.0.0";
                 options.EnableRuntimeInstrumentation = false;
-                options.EnableProcessInstrumentation = false;
             });
 
             // Assert
@@ -252,7 +251,6 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             services.AddMessageWorkerPoolTelemetry(options =>
             {
                 options.EnableRuntimeInstrumentation = true;
-                options.EnableProcessInstrumentation = false;
             });
 
             // Assert
@@ -269,7 +267,6 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             services.AddMessageWorkerPoolTelemetry(options =>
             {
                 options.EnableRuntimeInstrumentation = false;
-                options.EnableProcessInstrumentation = true;
             });
 
             // Assert
@@ -286,7 +283,6 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             services.AddMessageWorkerPoolTelemetry(options =>
             {
                 options.EnableRuntimeInstrumentation = false;
-                options.EnableProcessInstrumentation = false;
             });
 
             // Assert
@@ -322,7 +318,6 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             options.ServiceName.Should().Be("MessageWorkerPool");
             options.ServiceVersion.Should().Be("1.0.0");
             options.EnableRuntimeInstrumentation.Should().BeTrue();
-            options.EnableProcessInstrumentation.Should().BeTrue();
             options.ConfigureMetrics.Should().BeNull();
             options.ConfigureTracing.Should().BeNull();
         }
@@ -364,19 +359,6 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 
             // Assert
             options.EnableRuntimeInstrumentation.Should().BeFalse();
-        }
-
-        [Fact]
-        public void MessageWorkerPoolTelemetryOptions_EnableProcessInstrumentation_CanBeSet()
-        {
-            // Arrange
-            var options = new MessageWorkerPoolTelemetryOptions();
-
-            // Act
-            options.EnableProcessInstrumentation = false;
-
-            // Assert
-            options.EnableProcessInstrumentation.Should().BeFalse();
         }
 
         [Fact]

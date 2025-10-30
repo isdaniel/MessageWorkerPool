@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace MessageWorkerPool.Extensions
 {
@@ -8,8 +9,23 @@ namespace MessageWorkerPool.Extensions
     {
         internal static IDictionary<string, string> ConvertToStringMap(this IDictionary<string,object> source)
         {
-            return source != null ? source.ToDictionary(x => x.Key, x => x.Value?.ToString())
-                   : new Dictionary<string, string>();
+            if (source == null)
+                return new Dictionary<string, string>();
+
+            var result = new Dictionary<string, string>();
+            foreach (var kvp in source)
+            {
+                if (kvp.Value is byte[] bytes)
+                {
+                    // Convert byte array to UTF-8 string
+                    result[kvp.Key] = Encoding.UTF8.GetString(bytes);
+                }
+                else
+                {
+                    result[kvp.Key] = kvp.Value?.ToString();
+                }
+            }
+            return result;
         }
 
         internal static IDictionary<string, object> ConvertToObjectMap(this IDictionary<string, string> source)

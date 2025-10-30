@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -80,11 +81,38 @@ namespace MessageWorkerPool.RabbitMq
                     telemetry.SetTag("messaging.message_id", e.DeliveryTag.ToString());
                     telemetry.SetTag("messaging.rabbitmq.delivery_tag", e.DeliveryTag);
 
+                    // Convert RabbitMQ headers to string map
+                    var taskHeaders = messageHeaders.ConvertToStringMap();
+
+                    // Inject current trace context into task headers for distributed tracing
+                    // Using W3C Trace Context standard
+                    var currentActivity = Activity.Current;
+                    if (currentActivity != null)
+                    {
+                        // Create W3C traceparent: version-traceId-spanId-traceFlags
+                        var traceParent = $"00-{currentActivity.TraceId.ToHexString()}-{currentActivity.SpanId.ToHexString()}-{((int)currentActivity.ActivityTraceFlags):x2}";
+                        taskHeaders["traceparent"] = traceParent;
+                        Logger.LogDebug($"[TRACE] Injecting traceparent: {traceParent}");
+
+                        // Add tracestate if present
+                        if (!string.IsNullOrWhiteSpace(currentActivity.TraceStateString))
+                        {
+                            taskHeaders["tracestate"] = currentActivity.TraceStateString;
+                            Logger.LogDebug($"[TRACE] Injecting tracestate: {currentActivity.TraceStateString}");
+                        }
+                    }
+                    else
+                    {
+                        Logger.LogWarning("[TRACE] No current activity found, cannot inject trace context");
+                    }
+
+                    Logger.LogDebug($"[TRACE] Task headers count: {taskHeaders?.Count ?? 0}");
+
                     var task = new MessageInputTask
                     {
                         Message = message,
                         CorrelationId = correlationId,
-                        Headers = messageHeaders.ConvertToStringMap(),
+                        Headers = taskHeaders,
                         OriginalQueueName = _workerSetting.QueueName,
                     };
                     await DataStreamWriteAsync(task);
