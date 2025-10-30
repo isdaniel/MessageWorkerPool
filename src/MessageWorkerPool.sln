@@ -9,10 +9,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MessageWorkerPool.OpenTelem
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MessageWorkerPool.Test", "tests\MessageWorkerPool.Test\MessageWorkerPool.Test.csproj", "{35FA9645-24F8-4E20-94EB-0BED7ACA0D8B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WorkerHost", "Examples\DotNetWorker\WorkerHost\WorkerHost.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WorkerClient", "Examples\DotNetWorker\WorkerClient\WorkerClient.csproj", "{3E05A61E-F83E-474F-BB6A-968342827573}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{CCB7A0F2-C13A-4838-87D1-76F275F8123C}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
@@ -36,14 +32,6 @@ Global
 		{35FA9645-24F8-4E20-94EB-0BED7ACA0D8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{35FA9645-24F8-4E20-94EB-0BED7ACA0D8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{35FA9645-24F8-4E20-94EB-0BED7ACA0D8B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3E05A61E-F83E-474F-BB6A-968342827573}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3E05A61E-F83E-474F-BB6A-968342827573}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3E05A61E-F83E-474F-BB6A-968342827573}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3E05A61E-F83E-474F-BB6A-968342827573}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

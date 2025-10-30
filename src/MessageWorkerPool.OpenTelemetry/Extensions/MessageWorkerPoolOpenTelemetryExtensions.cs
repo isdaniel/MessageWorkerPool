@@ -98,8 +98,6 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
                     if (options.EnableRuntimeInstrumentation)
                         metrics.AddRuntimeInstrumentation();
 
-                    if (options.EnableProcessInstrumentation)
-                        metrics.AddProcessInstrumentation();
 
                     options.ConfigureMetrics?.Invoke(metrics);
                 })
@@ -132,11 +130,6 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
         /// Gets or sets whether to enable runtime instrumentation.
         /// </summary>
         public bool EnableRuntimeInstrumentation { get; set; } = true;
-
-        /// <summary>
-        /// Gets or sets whether to enable process instrumentation.
-        /// </summary>
-        public bool EnableProcessInstrumentation { get; set; } = true;
 
         /// <summary>
         /// Gets or sets an action to configure metrics.

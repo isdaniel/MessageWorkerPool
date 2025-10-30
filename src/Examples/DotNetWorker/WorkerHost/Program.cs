@@ -4,10 +4,13 @@ using MessageWorkerPool.RabbitMq;
 using Microsoft.Extensions.Logging;
 using MessageWorkerPool.Extensions;
 using MessageWorkerPool.OpenTelemetry.Extensions;
+using MessageWorkerPool.OpenTelemetry;
+using MessageWorkerPool.Telemetry;
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.AspNetCore.Builder;
+using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Exporter;
@@ -30,16 +33,11 @@ namespace WorkerHost
                 options.TimestampFormat = " yyyy-MM-dd HH:mm:ss ";
             });
 
-            // Add MessageWorkerPool telemetry with OpenTelemetry
-            var hostname = Environment.GetEnvironmentVariable("HOSTNAME") ?? System.Net.Dns.GetHostName();
-            var instanceId = Environment.GetEnvironmentVariable("INSTANCE_ID") ?? hostname;
-
             builder.Services.AddMessageWorkerPoolTelemetry(options =>
             {
                 options.ServiceName = "MessageWorkerPool.Example.Host";
                 options.ServiceVersion = "1.0.0";
                 options.EnableRuntimeInstrumentation = true;
-                options.EnableProcessInstrumentation = true;
 
                 // Configure metrics with OTLP exporter and Prometheus
                 options.ConfigureMetrics = metrics =>
@@ -48,6 +46,7 @@ namespace WorkerHost
                     {
                         otlpOptions.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
                         otlpOptions.Protocol = GetOtlpProtocol();
+                        otlpOptions.ExportProcessorType = ExportProcessorType.Batch;
                     });
                     metrics.AddPrometheusExporter(prometheusOptions =>
                     {
@@ -62,9 +61,14 @@ namespace WorkerHost
                     {
                         otlpOptions.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT"));
                         otlpOptions.Protocol = GetOtlpProtocol();
+                        otlpOptions.ExportProcessorType = ExportProcessorType.Batch;
                     });
                 };
             });
+
+            // Configure TelemetryManager to extract trace context from message headers
+            // Use the IDictionary<string, object> overload
+            TelemetryManager.SetTraceContextExtractor(TraceContextPropagation.ExtractTraceContext);
 
             // Add RabbitMQ Worker Pool
             builder.Services.AddRabbitMqWorkerPool(new RabbitMqSetting

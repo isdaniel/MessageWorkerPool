@@ -1,10 +1,7 @@
 using FluentAssertions;
-using MessageWorkerPool.OpenTelemetry;
-using System;
-using System.Collections.Generic;
+using MessageWorkerPool.Telemetry;
 using System.Diagnostics;
 using System.Text;
-using Xunit;
 
 namespace MessageWorkerPool.Test.OpenTelemetry
 {
@@ -73,7 +70,7 @@ namespace MessageWorkerPool.Test.OpenTelemetry
         public void ExtractTraceContext_WithNullHeaders_ShouldReturnDefaultContext()
         {
             // Act
-            var context = TraceContextPropagation.ExtractTraceContext(null);
+            var context = TraceContextPropagation.ExtractTraceContext(default(IDictionary<string, object>));
 
             // Assert
             context.Should().Be(default(ActivityContext));
