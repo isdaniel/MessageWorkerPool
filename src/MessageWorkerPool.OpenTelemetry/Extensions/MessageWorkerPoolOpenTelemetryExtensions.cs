@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using MessageWorkerPool.Telemetry;
+using MessageWorkerPool.Telemetry.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -25,12 +26,16 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
             string serviceName = "MessageWorkerPool",
             string serviceVersion = "1.0.0")
         {
-            // Set the OpenTelemetry provider
+            // Register the OpenTelemetry provider as a singleton
             var provider = new OpenTelemetryProvider(serviceName, serviceVersion);
-            TelemetryManager.SetProvider(provider);
+            services.AddSingleton<ITelemetryProvider>(provider);
 
-            // Set the trace context extractor for W3C trace context propagation
-            TelemetryManager.SetTraceContextExtractor(TraceContextPropagation.ExtractTraceContext);
+            // Register TelemetryManager as a singleton with trace context extractor
+            services.AddSingleton<ITelemetryManager>(sp =>
+            {
+                var telemetryProvider = sp.GetRequiredService<ITelemetryProvider>();
+                return new TelemetryManager(telemetryProvider, TraceContextPropagation.ExtractTraceContext);
+            });
 
             return services;
         }
@@ -80,12 +85,16 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
             var options = new MessageWorkerPoolTelemetryOptions();
             configure?.Invoke(options);
 
-            // Set the OpenTelemetry provider
+            // Register the OpenTelemetry provider as a singleton
             var provider = new OpenTelemetryProvider(options.ServiceName, options.ServiceVersion);
-            TelemetryManager.SetProvider(provider);
+            services.AddSingleton<ITelemetryProvider>(provider);
 
-            // Set the trace context extractor for W3C trace context propagation
-            TelemetryManager.SetTraceContextExtractor(TraceContextPropagation.ExtractTraceContext);
+            // Register TelemetryManager as a singleton with trace context extractor
+            services.AddSingleton<ITelemetryManager>(sp =>
+            {
+                var telemetryProvider = sp.GetRequiredService<ITelemetryProvider>();
+                return new TelemetryManager(telemetryProvider, TraceContextPropagation.ExtractTraceContext);
+            });
 
             // Configure OpenTelemetry
             services.AddOpenTelemetry()

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.Telemetry;
+using MessageWorkerPool.Telemetry.Abstractions;
 using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 
@@ -18,7 +20,7 @@ namespace MessageWorkerPool
         /// <returns>An instance of <see cref="IWorkerPool"/>.</returns>
         IWorkerPool CreateWorkerPool(WorkerPoolSetting poolSetting);
     }
-	
+
 	/// <summary>
     /// Factory class for creating instances of worker pools.
     /// Supports multiple types of message queue implementations (e.g., RabbitMQ, Kafka).
@@ -27,25 +29,31 @@ namespace MessageWorkerPool
     {
         private readonly MqSettingBase _mqSetting;
         private readonly ILoggerFactory _loggerFactory;
-		
+        private readonly ITelemetryManager _telemetryManager;
+
 		/// <summary>
         /// Registry mapping message queue types to their corresponding worker pool creation functions.
         /// </summary>
-        private readonly Dictionary<Type, Func<MqSettingBase, WorkerPoolSetting, ILoggerFactory, IWorkerPool>> _registry;
+        private readonly Dictionary<Type, Func<MqSettingBase, WorkerPoolSetting, ILoggerFactory, ITelemetryManager, IWorkerPool>> _registry;
 
 		/// <summary>
         /// Initializes a new instance of the <see cref="WorkerPoolFactory"/> class.
         /// </summary>
         /// <param name="mqSetting">The message queue settings.</param>
         /// <param name="loggerFactory">The logger factory used to create loggers for the worker pool.</param>
+        /// <param name="telemetryManager">The telemetry manager for tracking pool operations (optional).</param>
         /// <exception cref="ArgumentNullException">
         /// Thrown when <paramref name="mqSetting"/> or <paramref name="loggerFactory"/> is null.
         /// </exception>
-        public WorkerPoolFactory(MqSettingBase mqSetting, ILoggerFactory loggerFactory)
+        public WorkerPoolFactory(
+            MqSettingBase mqSetting,
+            ILoggerFactory loggerFactory,
+            ITelemetryManager telemetryManager = null)
         {
             _mqSetting = mqSetting ?? throw new ArgumentNullException(nameof(mqSetting));
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
-            _registry = new Dictionary<Type, Func<MqSettingBase, WorkerPoolSetting, ILoggerFactory, IWorkerPool>>();
+            _telemetryManager = telemetryManager ?? new TelemetryManager(NoOpTelemetryProvider.Instance);
+            _registry = new Dictionary<Type, Func<MqSettingBase, WorkerPoolSetting, ILoggerFactory, ITelemetryManager, IWorkerPool>>();
             RegisterGeneric<RabbitMqSetting, RabbitMqWorkerPool>();
         }
 
@@ -57,8 +65,8 @@ namespace MessageWorkerPool
             where TMqSetting : MqSettingBase
             where TWorkerPool : IWorkerPool
         {
-            _registry[typeof(TMqSetting)] = (mq, pool, logger) =>
-                (IWorkerPool)Activator.CreateInstance(typeof(TWorkerPool), mq, pool, logger);
+            _registry[typeof(TMqSetting)] = (mq, pool, logger, telemetry) =>
+                (IWorkerPool)Activator.CreateInstance(typeof(TWorkerPool), mq, pool, logger, telemetry);
         }
 
         /// <summary>
@@ -75,7 +83,7 @@ namespace MessageWorkerPool
 
             if (_registry.TryGetValue(settingType, out var factoryFunc))
             {
-                return factoryFunc(_mqSetting, poolSetting, _loggerFactory);
+                return factoryFunc(_mqSetting, poolSetting, _loggerFactory, _telemetryManager);
             }
 
             if (settingType.IsGenericType)
@@ -83,7 +91,7 @@ namespace MessageWorkerPool
                 Type genericDefinition = settingType.GetGenericTypeDefinition();
                 if (_registry.TryGetValue(genericDefinition, out var genericFactory))
                 {
-                    return genericFactory(_mqSetting, poolSetting, _loggerFactory);
+                    return genericFactory(_mqSetting, poolSetting, _loggerFactory, _telemetryManager);
                 }
             }
 

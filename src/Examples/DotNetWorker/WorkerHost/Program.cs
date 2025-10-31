@@ -66,9 +66,6 @@ namespace WorkerHost
                 };
             });
 
-            // Configure TelemetryManager to extract trace context from message headers
-            // Use the IDictionary<string, object> overload
-            TelemetryManager.SetTraceContextExtractor(TraceContextPropagation.ExtractTraceContext);
 
             // Add RabbitMQ Worker Pool
             builder.Services.AddRabbitMqWorkerPool(new RabbitMqSetting

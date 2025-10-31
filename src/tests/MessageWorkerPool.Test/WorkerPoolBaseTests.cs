@@ -33,7 +33,7 @@ namespace MessageWorkerPool.Test
             await workerPool.InitPoolAsync(CancellationToken.None);
 
             // Assert
-            Assert.Equal(3, workerPool.ProcessCount);  
+            Assert.Equal(3, workerPool.ProcessCount);
         }
 
         [Fact]
@@ -111,11 +111,11 @@ namespace MessageWorkerPool.Test
             // Arrange
             // Set up OpenTelemetry provider for the test
             var openTelemetryProvider = new OpenTelemetryProvider("MessageWorkerPool", "1.0.0");
-            TelemetryManager.SetProvider(openTelemetryProvider);
+            var telemetryManager = new TelemetryManager(openTelemetryProvider);
 
             var mockLoggerFactory = CreateMockLoggerFactory();
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 2, QueueName = "test-queue" };
-            var workerPool = new TestWorkerPool(mockWorkerSetting, mockLoggerFactory.Object);
+            var workerPool = new TestWorkerPool(mockWorkerSetting, mockLoggerFactory.Object, telemetryManager);
 
             var activities = new ConcurrentBag<Activity>();
             using var listener = new ActivityListener
@@ -139,8 +139,7 @@ namespace MessageWorkerPool.Test
             }
             finally
             {
-                // Clean up - reset to NoOp provider
-                TelemetryManager.SetProvider(MessageWorkerPool.Telemetry.NoOpTelemetryProvider.Instance);
+                // Clean up
                 openTelemetryProvider.Dispose();
             }
         }
@@ -151,11 +150,11 @@ namespace MessageWorkerPool.Test
             // Arrange
             // Set up OpenTelemetry provider for the test
             var openTelemetryProvider = new OpenTelemetryProvider("MessageWorkerPool", "1.0.0");
-            TelemetryManager.SetProvider(openTelemetryProvider);
+            var telemetryManager = new TelemetryManager(openTelemetryProvider);
 
             var mockLoggerFactory = CreateMockLoggerFactory();
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 1, QueueName = "test-queue" };
-            var workerPool = new TestWorkerPoolWithFailingWorker(mockWorkerSetting, mockLoggerFactory.Object);
+            var workerPool = new TestWorkerPoolWithFailingWorker(mockWorkerSetting, mockLoggerFactory.Object, telemetryManager);
 
             var activities = new ConcurrentBag<Activity>();
             using var listener = new ActivityListener
@@ -181,7 +180,6 @@ namespace MessageWorkerPool.Test
                 poolInitActivity.Status.Should().Be(ActivityStatusCode.Error);
             }
 
-            TelemetryManager.SetProvider(NoOpTelemetryProvider.Instance);
             openTelemetryProvider.Dispose();
         }
 
@@ -222,9 +220,9 @@ namespace MessageWorkerPool.Test
         {
             // Arrange
             var mockLoggerFactory = CreateMockLoggerFactory();
-            var mockWorkerSetting = new WorkerPoolSetting 
-            { 
-                WorkerUnitCount = 2, 
+            var mockWorkerSetting = new WorkerPoolSetting
+            {
+                WorkerUnitCount = 2,
                 QueueName = "test-queue",
                 CommandLine = "dotnet"
             };
@@ -262,15 +260,15 @@ namespace MessageWorkerPool.Test
             var mockLoggerFactory = CreateMockLoggerFactory();
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 3 };
             var workerPool = new TestWorkerPool(mockWorkerSetting, mockLoggerFactory.Object);
-            
+
             var mockWorker1 = new Mock<IWorker>();
             var mockWorker2 = new Mock<IWorker>();
             var mockWorker3 = new Mock<IWorker>();
-            
+
             mockWorker1.Setup(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
             mockWorker2.Setup(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
             mockWorker3.Setup(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-            
+
             workerPool.AddWorker(mockWorker1.Object);
             workerPool.AddWorker(mockWorker2.Object);
             workerPool.AddWorker(mockWorker3.Object);
@@ -296,7 +294,7 @@ namespace MessageWorkerPool.Test
 
             // Assert - Health check timer should be running (metrics initialized)
             workerPool.ProcessCount.Should().Be(2);
-            
+
             // Cleanup
             workerPool.Dispose();
         }
@@ -324,7 +322,7 @@ namespace MessageWorkerPool.Test
             var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
             mockLoggerFactory.Setup(x => x.CreateLogger(It.IsAny<string>()))
                 .Returns(mockLogger.Object);
-                
+
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 2, QueueName = "log-test-queue" };
             var workerPool = new TestWorkerPool(mockWorkerSetting, mockLoggerFactory.Object);
 
