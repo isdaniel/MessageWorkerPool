@@ -1,4 +1,5 @@
 using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.Telemetry.Abstractions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using RabbitMQ.Client;
@@ -7,8 +8,8 @@ namespace MessageWorkerPool.Test.Utility
 {
     public class TestWorkerPool : WorkerPoolBase
     {
-        public TestWorkerPool(WorkerPoolSetting workerSetting, ILoggerFactory loggerFactory)
-            : base(workerSetting, loggerFactory) { }
+        public TestWorkerPool(WorkerPoolSetting workerSetting, ILoggerFactory loggerFactory, ITelemetryManager telemetryManager = null)
+            : base(workerSetting, loggerFactory, telemetryManager) { }
 
         protected override IWorker GetWorker()
         {
@@ -24,8 +25,8 @@ namespace MessageWorkerPool.Test.Utility
 
     public class TestWorkerPoolWithFailingWorker : WorkerPoolBase
     {
-        public TestWorkerPoolWithFailingWorker(WorkerPoolSetting workerSetting, ILoggerFactory loggerFactory)
-            : base(workerSetting, loggerFactory) { }
+        public TestWorkerPoolWithFailingWorker(WorkerPoolSetting workerSetting, ILoggerFactory loggerFactory, ITelemetryManager telemetryManager = null)
+            : base(workerSetting, loggerFactory, telemetryManager) { }
 
         protected override IWorker GetWorker()
         {
@@ -40,17 +41,17 @@ namespace MessageWorkerPool.Test.Utility
     {
         public bool WorkerHasMetrics { get; private set; }
 
-        public TestWorkerPoolWithWorkerBase(WorkerPoolSetting workerSetting, ILoggerFactory loggerFactory)
-            : base(workerSetting, loggerFactory) { }
+        public TestWorkerPoolWithWorkerBase(WorkerPoolSetting workerSetting, ILoggerFactory loggerFactory, ITelemetryManager telemetryManager = null)
+            : base(workerSetting, loggerFactory, telemetryManager) { }
 
         protected override IWorker GetWorker()
         {
             var mockWorker = new Mock<IWorker>();
             mockWorker.Setup(w => w.InitWorkerAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-            
+
             // Create a worker that will have metrics set on it
             var workerWithMetrics = mockWorker.Object;
-            
+
             // We'll verify metrics are set in the test by checking Workers collection after init
             return workerWithMetrics;
         }
