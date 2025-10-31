@@ -10,6 +10,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using MessageWorkerPool.Extensions;
 using MessageWorkerPool.Telemetry;
+using MessageWorkerPool.Telemetry.Abstractions;
 
 /// <summary>
 /// Represents a worker that processes messages from a RabbitMQ queue.
@@ -40,13 +41,15 @@ namespace MessageWorkerPool.RabbitMq
         /// <param name="setting">RabbitMQ settings.</param>
         /// <param name="workerSetting">Worker pool settings.</param>
         /// <param name="channel">RabbitMQ channel.</param>
-        /// <param name="loggerFactory">Logger factory instance.</param>
+        /// <param name="logger">Logger instance.</param>
+        /// <param name="telemetryManager">The telemetry manager for tracking worker operations.</param>
         /// <exception cref="ArgumentNullException">Thrown when a required parameter is null.</exception>
         public RabbitMqWorker(
             RabbitMqSetting setting,
             WorkerPoolSetting workerSetting,
             IModel channel,
-            ILogger<RabbitMqWorker> logger) : base(workerSetting, logger)
+            ILogger<RabbitMqWorker> logger,
+            ITelemetryManager telemetryManager = null) : base(workerSetting, logger, telemetryManager)
         {
             if (workerSetting == null)
                 throw new ArgumentNullException(nameof(workerSetting));
@@ -71,7 +74,7 @@ namespace MessageWorkerPool.RabbitMq
             // Get RabbitMQ headers for trace context propagation
             var messageHeaders = e.BasicProperties.Headers;
 
-            using (var telemetry = new TaskProcessingTelemetry(WorkerId, _workerSetting.QueueName, correlationId, Logger, messageHeaders))
+            using (var telemetry = new TaskProcessingTelemetry(WorkerId, _workerSetting.QueueName, correlationId, Logger, _telemetryManager, messageHeaders))
             {
                 try
                 {
@@ -285,12 +288,12 @@ namespace MessageWorkerPool.RabbitMq
                         return;
                     }
                     Interlocked.Increment(ref _messageCount);
-                    TelemetryManager.Metrics?.IncrementProcessingTasks();
+                    _telemetryManager.Metrics?.IncrementProcessingTasks();
 
                     await ProcessingMessage(e, correlationId, token).ConfigureAwait(false);
 
                     Interlocked.Decrement(ref _messageCount);
-                    TelemetryManager.Metrics?.DecrementProcessingTasks();
+                    _telemetryManager.Metrics?.DecrementProcessingTasks();
                     _receivedWaitEvent.Set();
                 }
             };

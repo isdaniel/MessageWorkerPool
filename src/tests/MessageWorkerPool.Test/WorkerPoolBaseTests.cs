@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using System.Diagnostics;
 using System.Collections.Concurrent;
+using MessageWorkerPool.Utilities;
 
 namespace MessageWorkerPool.Test
 {
@@ -33,7 +34,7 @@ namespace MessageWorkerPool.Test
             await workerPool.InitPoolAsync(CancellationToken.None);
 
             // Assert
-            Assert.Equal(3, workerPool.ProcessCount);  
+            Assert.Equal(3, workerPool.ProcessCount);
         }
 
         [Fact]
@@ -111,11 +112,11 @@ namespace MessageWorkerPool.Test
             // Arrange
             // Set up OpenTelemetry provider for the test
             var openTelemetryProvider = new OpenTelemetryProvider("MessageWorkerPool", "1.0.0");
-            TelemetryManager.SetProvider(openTelemetryProvider);
+            var telemetryManager = new TelemetryManager(openTelemetryProvider);
 
             var mockLoggerFactory = CreateMockLoggerFactory();
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 2, QueueName = "test-queue" };
-            var workerPool = new TestWorkerPool(mockWorkerSetting, mockLoggerFactory.Object);
+            var workerPool = new TestWorkerPool(mockWorkerSetting, mockLoggerFactory.Object, telemetryManager);
 
             var activities = new ConcurrentBag<Activity>();
             using var listener = new ActivityListener
@@ -139,8 +140,7 @@ namespace MessageWorkerPool.Test
             }
             finally
             {
-                // Clean up - reset to NoOp provider
-                TelemetryManager.SetProvider(MessageWorkerPool.Telemetry.NoOpTelemetryProvider.Instance);
+                // Clean up
                 openTelemetryProvider.Dispose();
             }
         }
@@ -151,11 +151,11 @@ namespace MessageWorkerPool.Test
             // Arrange
             // Set up OpenTelemetry provider for the test
             var openTelemetryProvider = new OpenTelemetryProvider("MessageWorkerPool", "1.0.0");
-            TelemetryManager.SetProvider(openTelemetryProvider);
+            var telemetryManager = new TelemetryManager(openTelemetryProvider);
 
             var mockLoggerFactory = CreateMockLoggerFactory();
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 1, QueueName = "test-queue" };
-            var workerPool = new TestWorkerPoolWithFailingWorker(mockWorkerSetting, mockLoggerFactory.Object);
+            var workerPool = new TestWorkerPoolWithFailingWorker(mockWorkerSetting, mockLoggerFactory.Object, telemetryManager);
 
             var activities = new ConcurrentBag<Activity>();
             using var listener = new ActivityListener
@@ -181,7 +181,6 @@ namespace MessageWorkerPool.Test
                 poolInitActivity.Status.Should().Be(ActivityStatusCode.Error);
             }
 
-            TelemetryManager.SetProvider(NoOpTelemetryProvider.Instance);
             openTelemetryProvider.Dispose();
         }
 
@@ -222,9 +221,9 @@ namespace MessageWorkerPool.Test
         {
             // Arrange
             var mockLoggerFactory = CreateMockLoggerFactory();
-            var mockWorkerSetting = new WorkerPoolSetting 
-            { 
-                WorkerUnitCount = 2, 
+            var mockWorkerSetting = new WorkerPoolSetting
+            {
+                WorkerUnitCount = 2,
                 QueueName = "test-queue",
                 CommandLine = "dotnet"
             };
@@ -262,15 +261,15 @@ namespace MessageWorkerPool.Test
             var mockLoggerFactory = CreateMockLoggerFactory();
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 3 };
             var workerPool = new TestWorkerPool(mockWorkerSetting, mockLoggerFactory.Object);
-            
+
             var mockWorker1 = new Mock<IWorker>();
             var mockWorker2 = new Mock<IWorker>();
             var mockWorker3 = new Mock<IWorker>();
-            
+
             mockWorker1.Setup(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
             mockWorker2.Setup(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
             mockWorker3.Setup(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-            
+
             workerPool.AddWorker(mockWorker1.Object);
             workerPool.AddWorker(mockWorker2.Object);
             workerPool.AddWorker(mockWorker3.Object);
@@ -296,7 +295,7 @@ namespace MessageWorkerPool.Test
 
             // Assert - Health check timer should be running (metrics initialized)
             workerPool.ProcessCount.Should().Be(2);
-            
+
             // Cleanup
             workerPool.Dispose();
         }
@@ -324,7 +323,7 @@ namespace MessageWorkerPool.Test
             var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
             mockLoggerFactory.Setup(x => x.CreateLogger(It.IsAny<string>()))
                 .Returns(mockLogger.Object);
-                
+
             var mockWorkerSetting = new WorkerPoolSetting { WorkerUnitCount = 2, QueueName = "log-test-queue" };
             var workerPool = new TestWorkerPool(mockWorkerSetting, mockLoggerFactory.Object);
 
@@ -340,6 +339,280 @@ namespace MessageWorkerPool.Test
                     It.IsAny<Exception?>(),
                     It.Is<Func<It.IsAnyType, Exception?, string>>((v, t) => true)),
                 Times.AtLeastOnce);
+        }
+    }
+
+    public class WorkerPoolBaseAdditionalTests
+    {
+        private class TestWorkerPool : WorkerPoolBase
+        {
+            private readonly Func<IWorker> _workerFactory;
+            private readonly bool _throwOnWorkerCreation;
+
+            public TestWorkerPool(
+                WorkerPoolSetting setting,
+                ILoggerFactory loggerFactory,
+                Func<IWorker> workerFactory = null,
+                bool throwOnWorkerCreation = false)
+                : base(setting, loggerFactory)
+            {
+                _workerFactory = workerFactory;
+                _throwOnWorkerCreation = throwOnWorkerCreation;
+            }
+
+            protected override IWorker GetWorker()
+            {
+                if (_throwOnWorkerCreation)
+                {
+                    throw new InvalidOperationException("Worker creation failed");
+                }
+                return _workerFactory?.Invoke() ?? new Mock<IWorker>().Object;
+            }
+        }
+
+        private class TestFailingWorker : IWorker
+        {
+            public WorkerStatus Status => WorkerStatus.WaitForInit;
+            public string WorkerId => "test-worker";
+            public int? ProcessId => 12345;
+
+            public Task InitWorkerAsync(CancellationToken token)
+            {
+                throw new InvalidOperationException("Init failed");
+            }
+
+            public Task GracefulShutDownAsync(CancellationToken token)
+            {
+                return Task.CompletedTask;
+            }
+
+            public void Dispose() { }
+        }
+
+        [Fact]
+        public async Task InitPoolAsync_ShouldThrowAndLogError_WhenWorkerCreationFails()
+        {
+            // Arrange
+            var mockLoggerFactory = new Mock<ILoggerFactory>();
+            var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
+            mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+
+            var setting = new WorkerPoolSetting { WorkerUnitCount = 3, QueueName = "test-queue" };
+            var pool = new TestWorkerPool(setting, mockLoggerFactory.Object, throwOnWorkerCreation: true);
+
+            // Act & Assert
+            var act = async () => await pool.InitPoolAsync(CancellationToken.None);
+            await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Worker creation failed");
+
+            mockLogger.Verify(
+                l => l.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((o, t) => o.ToString().Contains("Failed to initialize worker pool")),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task InitPoolAsync_ShouldThrow_WhenWorkerInitFails()
+        {
+            // Arrange
+            var mockLoggerFactory = new Mock<ILoggerFactory>();
+            var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
+            mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+
+            var setting = new WorkerPoolSetting { WorkerUnitCount = 2, QueueName = "test-queue" };
+            var pool = new TestWorkerPool(setting, mockLoggerFactory.Object, () => new TestFailingWorker());
+
+            // Act & Assert
+            var act = async () => await pool.InitPoolAsync(CancellationToken.None);
+            await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Init failed");
+        }
+
+        [Fact]
+        public async Task InitPoolAsync_ShouldInitializeAllWorkers_BeforeFailure()
+        {
+            // Arrange
+            var mockLoggerFactory = new Mock<ILoggerFactory>();
+            var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
+            mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+
+            int workerCreationCount = 0;
+            Func<IWorker> workerFactory = () =>
+            {
+                workerCreationCount++;
+                if (workerCreationCount == 2)
+                {
+                    return new TestFailingWorker(); // Second worker fails
+                }
+                var mockWorker = new Mock<IWorker>();
+                mockWorker.Setup(w => w.InitWorkerAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+                return mockWorker.Object;
+            };
+
+            var setting = new WorkerPoolSetting { WorkerUnitCount = 3, QueueName = "test-queue" };
+            var pool = new TestWorkerPool(setting, mockLoggerFactory.Object, workerFactory);
+
+            // Act & Assert
+            var act = async () => await pool.InitPoolAsync(CancellationToken.None);
+            await act.Should().ThrowAsync<InvalidOperationException>();
+
+            // Verify that we attempted to create 2 workers before failing
+            workerCreationCount.Should().Be(2);
+        }
+
+        [Fact]
+        public async Task WaitFinishedAsync_ShouldWaitForAllWorkers()
+        {
+            // Arrange
+            var mockLoggerFactory = new Mock<ILoggerFactory>();
+            var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
+            mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+
+            var worker1Task = new TaskCompletionSource<bool>();
+            var worker2Task = new TaskCompletionSource<bool>();
+
+            var mockWorker1 = new Mock<IWorker>();
+            var mockWorker2 = new Mock<IWorker>();
+
+            mockWorker1.Setup(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>()))
+                .Returns(worker1Task.Task.ContinueWith(_ => { }));
+            mockWorker2.Setup(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>()))
+                .Returns(worker2Task.Task.ContinueWith(_ => { }));
+            mockWorker1.Setup(w => w.InitWorkerAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            mockWorker2.Setup(w => w.InitWorkerAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+            var workers = new Queue<IWorker>(new[] { mockWorker1.Object, mockWorker2.Object });
+            Func<IWorker> workerFactory = () => workers.Dequeue();
+
+            var setting = new WorkerPoolSetting { WorkerUnitCount = 2, QueueName = "test-queue" };
+            var pool = new TestWorkerPool(setting, mockLoggerFactory.Object, workerFactory);
+
+            await pool.InitPoolAsync(CancellationToken.None);
+
+            // Act - Start shutdown and wait for completion
+            var waitTask = pool.WaitFinishedAsync(CancellationToken.None);
+
+            // Complete workers one by one
+            await Task.Delay(100);
+            worker1Task.SetResult(true);
+            await Task.Delay(100);
+            worker2Task.SetResult(true);
+
+            await waitTask;
+
+            // Assert
+            mockWorker1.Verify(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>()), Times.Once);
+            mockWorker2.Verify(w => w.GracefulShutDownAsync(It.IsAny<CancellationToken>()), Times.Once);
+            mockWorker1.Verify(w => w.Dispose(), Times.Once);
+            mockWorker2.Verify(w => w.Dispose(), Times.Once);
+        }
+
+        [Fact]
+        public void Dispose_ShouldDisposeAllWorkers()
+        {
+            // Arrange
+            var mockLoggerFactory = new Mock<ILoggerFactory>();
+            var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
+            mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+
+            var mockWorker1 = new Mock<IWorker>();
+            var mockWorker2 = new Mock<IWorker>();
+            mockWorker1.Setup(w => w.InitWorkerAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            mockWorker2.Setup(w => w.InitWorkerAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+            var workers = new Queue<IWorker>(new[] { mockWorker1.Object, mockWorker2.Object });
+            Func<IWorker> workerFactory = () => workers.Dequeue();
+
+            var setting = new WorkerPoolSetting { WorkerUnitCount = 2, QueueName = "test-queue" };
+            var pool = new TestWorkerPool(setting, mockLoggerFactory.Object, workerFactory);
+
+            pool.InitPoolAsync(CancellationToken.None).Wait();
+
+            // Act
+            pool.Dispose();
+
+            // Assert
+            mockWorker1.Verify(w => w.Dispose(), Times.Once);
+            mockWorker2.Verify(w => w.Dispose(), Times.Once);
+            pool.IsClosed.Should().BeTrue();
+        }
+
+        [Fact]
+        public void Dispose_ShouldBeIdempotent()
+        {
+            // Arrange
+            var mockLoggerFactory = new Mock<ILoggerFactory>();
+            var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
+            mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+
+            var mockWorker = new Mock<IWorker>();
+            mockWorker.Setup(w => w.InitWorkerAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+            var setting = new WorkerPoolSetting { WorkerUnitCount = 1, QueueName = "test-queue" };
+            var pool = new TestWorkerPool(setting, mockLoggerFactory.Object, () => mockWorker.Object);
+
+            pool.InitPoolAsync(CancellationToken.None).Wait();
+
+            // Act - Dispose multiple times
+            pool.Dispose();
+            pool.Dispose();
+            pool.Dispose();
+
+            // Assert - Worker should only be disposed once
+            mockWorker.Verify(w => w.Dispose(), Times.Once);
+        }
+
+        [Fact]
+        public void ProcessCount_ShouldReturnCorrectValue()
+        {
+            // Arrange
+            var mockLoggerFactory = new Mock<ILoggerFactory>();
+            var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
+            mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+
+            var setting = new WorkerPoolSetting { WorkerUnitCount = 7, QueueName = "test-queue" };
+            var pool = new TestWorkerPool(setting, mockLoggerFactory.Object);
+
+            // Act
+            var count = pool.ProcessCount;
+
+            // Assert
+            count.Should().Be(7);
+        }
+
+        [Fact]
+        public void IsClosed_ShouldBeFalseInitially()
+        {
+            // Arrange
+            var mockLoggerFactory = new Mock<ILoggerFactory>();
+            var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
+            mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+
+            var setting = new WorkerPoolSetting { WorkerUnitCount = 1, QueueName = "test-queue" };
+            var pool = new TestWorkerPool(setting, mockLoggerFactory.Object);
+
+            // Act & Assert
+            pool.IsClosed.Should().BeFalse();
+        }
+
+        [Fact]
+        public void IsClosed_ShouldBeTrueAfterDispose()
+        {
+            // Arrange
+            var mockLoggerFactory = new Mock<ILoggerFactory>();
+            var mockLogger = new Mock<ILogger<WorkerPoolBase>>();
+            mockLoggerFactory.Setup(f => f.CreateLogger(It.IsAny<string>())).Returns(mockLogger.Object);
+
+            var setting = new WorkerPoolSetting { WorkerUnitCount = 1, QueueName = "test-queue" };
+            var pool = new TestWorkerPool(setting, mockLoggerFactory.Object);
+
+            // Act
+            pool.Dispose();
+
+            // Assert
+            pool.IsClosed.Should().BeTrue();
         }
     }
 }
