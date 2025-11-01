@@ -209,5 +209,39 @@ namespace MessageWorkerPool.Test.OpenTelemetry
             // Assert
             act.Should().NotThrow();
         }
+
+        [Fact]
+        public void Dispose_WhenMetricsIsNull_ShouldNotThrow()
+        {
+            // Arrange - Create a provider and dispose it
+            var provider = new OpenTelemetryProvider("TestService", "1.0.0");
+
+            // Act - Dispose once
+            provider.Dispose();
+
+            // Assert - Second dispose should still not throw even if _metrics is already disposed
+            Action act = () => provider.Dispose();
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void Dispose_BothActivitySourceAndMetrics_ShouldDisposeCorrectly()
+        {
+            // Arrange
+            var provider = new OpenTelemetryProvider("TestService", "1.0.0");
+            
+            // Use the provider to ensure both ActivitySource and Metrics are initialized
+            var activity = provider.StartActivity("Test");
+            activity?.Dispose();
+            
+            var metrics = provider.Metrics;
+            metrics.Should().NotBeNull();
+
+            // Act
+            Action act = () => provider.Dispose();
+
+            // Assert
+            act.Should().NotThrow();
+        }
     }
 }
