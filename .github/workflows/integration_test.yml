@@ -51,5 +51,5 @@ jobs:
     - name: Upload chaos_script.log as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: chaos-script-log-${{ matrix.mqtype }}
+        name: chaos-script-log-${{ matrix.os }}-${{ matrix.mqtype }}
         path: ./src/tests/integrationTest/autoScript/chaos_script.log

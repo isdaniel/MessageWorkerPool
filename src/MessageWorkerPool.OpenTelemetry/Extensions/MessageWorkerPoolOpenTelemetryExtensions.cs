@@ -26,9 +26,7 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
             string serviceName = "MessageWorkerPool",
             string serviceVersion = "1.0.0")
         {
-            // Register the OpenTelemetry provider as a singleton
-            var provider = new OpenTelemetryProvider(serviceName, serviceVersion);
-            services.AddSingleton<ITelemetryProvider>(provider);
+            services.AddSingleton<ITelemetryProvider>(new OpenTelemetryProvider(serviceName, serviceVersion));
 
             // Register TelemetryManager as a singleton with trace context extractor
             services.AddSingleton<ITelemetryManager>(sp =>
@@ -85,9 +83,7 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
             var options = new MessageWorkerPoolTelemetryOptions();
             configure?.Invoke(options);
 
-            // Register the OpenTelemetry provider as a singleton
-            var provider = new OpenTelemetryProvider(options.ServiceName, options.ServiceVersion);
-            services.AddSingleton<ITelemetryProvider>(provider);
+            services.AddSingleton<ITelemetryProvider>(new OpenTelemetryProvider(options.ServiceName, options.ServiceVersion));
 
             // Register TelemetryManager as a singleton with trace context extractor
             services.AddSingleton<ITelemetryManager>(sp =>
