@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MessageWorkerPool.Telemetry;
+using MessageWorkerPool.Telemetry.Abstractions;
 using System.Linq;
 using MessageWorkerPool.Utilities;
 
@@ -11,7 +12,7 @@ namespace MessageWorkerPool
 {
 
     /// <summary>
-	/// Represents the base implementation for a worker pool. 
+	/// Represents the base implementation for a worker pool.
 	/// Manages a collection of workers that process messages concurrently.
 	/// This abstract class serves as a foundation for specific implementations, such as RabbitMQ or Kafka workers.
 	/// </summary>
@@ -25,6 +26,7 @@ namespace MessageWorkerPool
         protected readonly WorkerPoolSetting _workerSetting;
         protected readonly ILogger<WorkerPoolBase> _logger;
         protected readonly ILoggerFactory _loggerFactory;
+        protected readonly ITelemetryManager _telemetryManager;
         private bool _isClosed = false;
 
 		/// <summary>
@@ -47,8 +49,12 @@ namespace MessageWorkerPool
         /// </summary>
         /// <param name="workerSetting">The configuration settings for the worker pool.</param>
         /// <param name="loggerFactory">The logger factory used to create loggers for the pool and workers.</param>
+        /// <param name="telemetryManager">The telemetry manager for tracking pool operations.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="workerSetting"/> is null.</exception>
-        public WorkerPoolBase(WorkerPoolSetting workerSetting,ILoggerFactory loggerFactory)
+        public WorkerPoolBase(
+            WorkerPoolSetting workerSetting,
+            ILoggerFactory loggerFactory,
+            ITelemetryManager telemetryManager = null)
         {
             if (workerSetting == null)
             {
@@ -58,11 +64,12 @@ namespace MessageWorkerPool
             _loggerFactory = loggerFactory;
             this._logger = _loggerFactory.CreateLogger<WorkerPoolBase>();
             _workerSetting = workerSetting;
+            _telemetryManager = telemetryManager ?? new TelemetryManager(NoOpTelemetryProvider.Instance);
             ProcessCount = workerSetting.WorkerUnitCount;
-            
+
             // Initialize telemetry
-            TelemetryManager.Metrics?.SetActiveWorkers(0);
-            
+            _telemetryManager.Metrics?.SetActiveWorkers(0);
+
             // Start periodic health check updates (every 5 seconds)
             _healthCheckTimer = new Timer(_ => UpdateHealthMetrics(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
         }
@@ -83,26 +90,26 @@ namespace MessageWorkerPool
 		/// <returns>A task that represents the asynchronous operation.</returns>
         public async Task InitPoolAsync(CancellationToken token)
         {
-            using (var activity = TelemetryManager.StartPoolInitActivity(ProcessCount, _workerSetting.QueueName))
+            using (var activity = _telemetryManager.StartPoolInitActivity(ProcessCount, _workerSetting.QueueName))
             {
                 try
                 {
                     for (int i = 0; i < ProcessCount; i++)
                     {
                         IWorker worker = GetWorker();
-                        
+
                         await worker.InitWorkerAsync(token);
                         Workers.Add(worker);
                     }
-                    
-                    TelemetryManager.Metrics?.SetActiveWorkers(Workers.Count);
+
+                    _telemetryManager.Metrics?.SetActiveWorkers(Workers.Count);
                     UpdateHealthMetrics();
-                    
+
                     _logger.LogInformation($"Worker pool initialized with {Workers.Count} workers for queue '{_workerSetting.QueueName}'");
                 }
                 catch (Exception ex)
                 {
-                    TelemetryManager.RecordException(activity, ex);
+                    _telemetryManager.RecordException(activity, ex);
                     _logger.LogError(ex, "Failed to initialize worker pool");
                     throw;
                 }
@@ -123,7 +130,7 @@ namespace MessageWorkerPool
                 await worker.GracefulShutDownAsync(token);
             }
 
-            Dispose();   
+            Dispose();
         }
 
         /// <summary>
@@ -134,10 +141,10 @@ namespace MessageWorkerPool
             try
             {
                 var summary = WorkerPoolInformationCollector.CollectWorkerStatus(Workers, _workerSetting.QueueName);
-                
-                TelemetryManager.Metrics?.SetHealthyWorkers(summary.HealthyWorkers);
-                TelemetryManager.Metrics?.SetStoppedWorkers(summary.StoppedWorkers);
-                TelemetryManager.Metrics?.SetActiveWorkers(summary.TotalWorkers);
+
+                _telemetryManager.Metrics?.SetHealthyWorkers(summary.HealthyWorkers);
+                _telemetryManager.Metrics?.SetStoppedWorkers(summary.StoppedWorkers);
+                _telemetryManager.Metrics?.SetActiveWorkers(summary.TotalWorkers);
             }
             catch (Exception ex)
             {
@@ -152,7 +159,7 @@ namespace MessageWorkerPool
         public virtual WorkerPoolInformation GetPoolInformation()
         {
             var summary = WorkerPoolInformationCollector.CollectWorkerStatus(Workers, _workerSetting.QueueName);
-            
+
             return new WorkerPoolInformation
             {
                 QueueName = _workerSetting.QueueName,
@@ -178,7 +185,7 @@ namespace MessageWorkerPool
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-			
+
 		/// <summary>
 		/// Releases the unmanaged resources used by the worker pool and optionally releases the managed resources.
 		/// </summary>
@@ -194,7 +201,7 @@ namespace MessageWorkerPool
             {
                 _healthCheckTimer?.Dispose();
                 _healthCheckTimer = null;
-                
+
                 foreach (var worker in Workers)
                 {
                     worker.Dispose();

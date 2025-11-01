@@ -21,7 +21,15 @@ namespace IntegrationTester
                 {
                     BootstrapServers = EnvironmentVAR.HOSTNAME,
                     Acks = Acks.All,
-                    EnableIdempotence = true
+                    EnableIdempotence = true,
+                    // Add connection timeouts to prevent indefinite hangs
+                    RequestTimeoutMs = 30000,      // 30 seconds for requests
+                    MessageTimeoutMs = 60000,      // 60 seconds for message delivery
+                    SocketTimeoutMs = 10000,       // 10 seconds for socket operations
+                    MetadataMaxAgeMs = 30000,      // Refresh metadata every 30 seconds
+                    // Reduce retries to fail faster in case of issues
+                    MessageSendMaxRetries = 3,
+                    RetryBackoffMs = 1000
                 },
                 ConsumerCfg = new ConsumerConfig()
                 {
@@ -29,6 +37,10 @@ namespace IntegrationTester
                     GroupId = EnvironmentVAR.GROUPID,
                     AutoOffsetReset = AutoOffsetReset.Earliest,
                     EnableAutoCommit = false,
+                    // Add connection timeouts for consumer
+                    SessionTimeoutMs = 30000,
+                    SocketTimeoutMs = 10000,
+                    MetadataMaxAgeMs = 30000
                 },
                 Topic = QueueName
             });
@@ -67,7 +79,7 @@ namespace IntegrationTester
 
             await CreateTestingData(totalMessageCount, _queueName, replyQueueName);
             Console.WriteLine("CreateTestingData done, all message pushed to message queue.");
-            ResponseMessage act = JsonSerializer.Deserialize<ResponseMessage>(_messageClient.ConsumeMessage()); 
+            ResponseMessage act = JsonSerializer.Deserialize<ResponseMessage>(_messageClient.ConsumeMessage());
 
             var actualList = await GetAllBalanceFrom("public.act");
 
@@ -86,7 +98,7 @@ namespace IntegrationTester
 
         private async Task CreateTestingData(int totalMessageCount, string queueName, string replyQueueName)
         {
-            
+
             Random rnd = new Random();
             int i = 1;
             while (i <= totalMessageCount)
@@ -113,7 +125,7 @@ namespace IntegrationTester
                     Console.WriteLine($"Failed to publish message {i}: {ex.Message}");
                 }
             }
-            
+
         }
 
         private static void ValidateBalanceComparison(List<BalanceModel> actList, List<BalanceModel> expectList)

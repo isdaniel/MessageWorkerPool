@@ -13,12 +13,13 @@ using Xunit;
 namespace MessageWorkerPool.Test.Telemetry
 {
     [Collection("TelemetryTests")]
-    public class TaskProcessingTelemetryTests : IDisposable
+    public class TaskProcessingTelemetryTests
     {
         private readonly Mock<ILogger> _mockLogger;
         private readonly Mock<ITelemetryProvider> _mockProvider;
         private readonly Mock<IActivity> _mockActivity;
         private readonly Mock<IMetrics> _mockMetrics;
+        private readonly ITelemetryManager _telemetryManager;
 
         public TaskProcessingTelemetryTests()
         {
@@ -30,21 +31,15 @@ namespace MessageWorkerPool.Test.Telemetry
             _mockProvider.Setup(p => p.StartActivity(It.IsAny<string>(), It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>()))
                 .Returns(_mockActivity.Object);
             _mockProvider.Setup(p => p.Metrics).Returns(_mockMetrics.Object);
-            
-            TelemetryManager.SetProvider(_mockProvider.Object);
-        }
 
-        public void Dispose()
-        {
-            // Clean up - reset to NoOp provider after each test
-            TelemetryManager.SetProvider(NoOpTelemetryProvider.Instance);
+            _telemetryManager = new TelemetryManager(_mockProvider.Object);
         }
 
         [Fact]
         public void Constructor_ShouldStartStopwatchAndActivity()
         {
             // Arrange & Act
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Assert
             _mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>()), Times.Once);
@@ -55,7 +50,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void Constructor_ShouldSetActivityTags()
         {
             // Arrange & Act
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Assert
             _mockActivity.Verify(a => a.SetTag("worker.id", "worker-1"), Times.Once);
@@ -76,7 +71,7 @@ namespace MessageWorkerPool.Test.Telemetry
             };
 
             // Act
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, messageHeaders);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager, messageHeaders);
 
             // Assert
             _mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, It.IsAny<ActivityContext>()), Times.Once);
@@ -91,17 +86,17 @@ namespace MessageWorkerPool.Test.Telemetry
             {
                 { "traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01" }
             };
-            
+
             var expectedContext = new ActivityContext(
                 ActivityTraceId.CreateFromString("0af7651916cd43dd8448eb211c80319c".AsSpan()),
                 ActivitySpanId.CreateFromString("b7ad6b7169203331".AsSpan()),
                 ActivityTraceFlags.Recorded);
 
             Func<IDictionary<string, object>, ActivityContext> contextExtractor = (headers) => expectedContext;
-            TelemetryManager.SetTraceContextExtractor(contextExtractor);
+            var customTelemetryManager = new TelemetryManager(_mockProvider.Object, contextExtractor);
 
             // Act
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, messageHeaders);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, customTelemetryManager, messageHeaders);
 
             // Assert
             _mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, expectedContext), Times.Once);
@@ -116,14 +111,14 @@ namespace MessageWorkerPool.Test.Telemetry
                 { "invalid-header", "bad-value" }
             };
 
-            Func<IDictionary<string, object>, ActivityContext> contextExtractor = (headers) => 
+            Func<IDictionary<string, object>, ActivityContext> contextExtractor = (headers) =>
                 throw new InvalidOperationException("Context extraction failed");
-            
-            TelemetryManager.SetTraceContextExtractor(contextExtractor);
+
+            var customTelemetryManager = new TelemetryManager(_mockProvider.Object, contextExtractor);
 
             // Act & Assert - Should not throw
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, messageHeaders);
-            
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, customTelemetryManager, messageHeaders);
+
             // Should still create activity with default context
             _mockProvider.Verify(p => p.StartActivity("Worker.ProcessTask", null, ActivityKind.Consumer, It.IsAny<ActivityContext>()), Times.Once);
         }
@@ -132,7 +127,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void SetTag_ShouldDelegateToActivity()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             telemetry.SetTag("custom.tag", "custom.value");
@@ -147,8 +142,8 @@ namespace MessageWorkerPool.Test.Telemetry
             // Arrange
             _mockProvider.Setup(p => p.StartActivity(It.IsAny<string>(), It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>()))
                 .Returns((IActivity)null);
-            
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             Action act = () => telemetry.SetTag("custom.tag", "custom.value");
@@ -161,7 +156,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordSuccess_ShouldRecordMetricsAndSetStatus()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             telemetry.RecordSuccess(MessageStatus.MESSAGE_DONE);
@@ -177,7 +172,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordSuccess_WithMessageDoneWithReply_ShouldSetCorrectStatus()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             telemetry.RecordSuccess(MessageStatus.MESSAGE_DONE_WITH_REPLY);
@@ -192,7 +187,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordSuccess_CalledMultipleTimes_ShouldOnlyRecordOnce()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             telemetry.RecordSuccess(MessageStatus.MESSAGE_DONE);
@@ -208,7 +203,7 @@ namespace MessageWorkerPool.Test.Telemetry
         {
             // Arrange
             _mockProvider.Setup(p => p.Metrics).Returns((IMetrics)null);
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             Action act = () => telemetry.RecordSuccess(MessageStatus.MESSAGE_DONE);
@@ -221,7 +216,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordRejection_ShouldRecordMetricsAndSetStatus()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             telemetry.RecordRejection(MessageStatus.IGNORE_MESSAGE);
@@ -237,7 +232,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordRejection_CalledMultipleTimes_ShouldOnlyRecordOnce()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             telemetry.RecordRejection(MessageStatus.IGNORE_MESSAGE);
@@ -252,7 +247,7 @@ namespace MessageWorkerPool.Test.Telemetry
         {
             // Arrange
             _mockProvider.Setup(p => p.Metrics).Returns((IMetrics)null);
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             Action act = () => telemetry.RecordRejection(MessageStatus.IGNORE_MESSAGE);
@@ -265,7 +260,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordFailure_ShouldRecordMetricsAndException()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
             var exception = new InvalidOperationException("Test exception");
 
             // Act
@@ -282,7 +277,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordFailure_ShouldLogWarning()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
             var exception = new InvalidOperationException("Test exception");
 
             // Act
@@ -296,7 +291,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordFailure_CalledMultipleTimes_ShouldOnlyRecordOnce()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
             var exception = new InvalidOperationException("Test exception");
 
             // Act
@@ -312,7 +307,7 @@ namespace MessageWorkerPool.Test.Telemetry
         {
             // Arrange
             _mockProvider.Setup(p => p.Metrics).Returns((IMetrics)null);
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
             var exception = new InvalidOperationException("Test exception");
 
             // Act
@@ -328,8 +323,8 @@ namespace MessageWorkerPool.Test.Telemetry
             // Arrange
             _mockProvider.Setup(p => p.StartActivity(It.IsAny<string>(), It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>()))
                 .Returns((IActivity)null);
-            
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
             var exception = new InvalidOperationException("Test exception");
 
             // Act
@@ -343,7 +338,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void Dispose_ShouldDecrementProcessingTasksAndDisposeActivity()
         {
             // Arrange
-            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             telemetry.Dispose();
@@ -357,7 +352,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void Dispose_CalledMultipleTimes_ShouldOnlyExecuteOnce()
         {
             // Arrange
-            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             telemetry.Dispose();
@@ -374,7 +369,7 @@ namespace MessageWorkerPool.Test.Telemetry
         {
             // Arrange
             _mockProvider.Setup(p => p.Metrics).Returns((IMetrics)null);
-            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             Action act = () => telemetry.Dispose();
@@ -389,8 +384,8 @@ namespace MessageWorkerPool.Test.Telemetry
             // Arrange
             _mockProvider.Setup(p => p.StartActivity(It.IsAny<string>(), It.IsAny<IDictionary<string, object>>(), It.IsAny<ActivityKind>(), It.IsAny<ActivityContext>()))
                 .Returns((IActivity)null);
-            
-            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+
+            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             Action act = () => telemetry.Dispose();
@@ -403,7 +398,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordSuccess_AfterRecordFailure_ShouldNotRecord()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
             var exception = new InvalidOperationException("Test exception");
 
             // Act
@@ -419,7 +414,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordRejection_AfterRecordSuccess_ShouldNotRecord()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
 
             // Act
             telemetry.RecordSuccess(MessageStatus.MESSAGE_DONE);
@@ -434,8 +429,8 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordTaskDuration_ShouldBeMeasuredAccurately()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object);
-            
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", _mockLogger.Object, _telemetryManager);
+
             // Act - Simulate some processing time
             System.Threading.Thread.Sleep(100);
             telemetry.RecordSuccess(MessageStatus.MESSAGE_DONE);
@@ -450,7 +445,7 @@ namespace MessageWorkerPool.Test.Telemetry
             // Arrange & Act
             Action act = () =>
             {
-                using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", null);
+                using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", null, _telemetryManager);
             };
 
             // Assert
@@ -461,7 +456,7 @@ namespace MessageWorkerPool.Test.Telemetry
         public void RecordFailure_WithNullLogger_ShouldNotThrow()
         {
             // Arrange
-            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", null);
+            using var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", null, _telemetryManager);
             var exception = new InvalidOperationException("Test exception");
 
             // Act

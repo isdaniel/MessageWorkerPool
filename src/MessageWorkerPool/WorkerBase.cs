@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using System.IO.Pipes;
 using MessageWorkerPool.IO;
 using MessageWorkerPool.Telemetry;
+using MessageWorkerPool.Telemetry.Abstractions;
 
 namespace MessageWorkerPool
 {
@@ -36,13 +37,14 @@ namespace MessageWorkerPool
         };
 
         protected IProcessWrapper Process { get; private set; }
-        
+
         /// <summary>
         /// Gets the process ID for telemetry purposes.
         /// </summary>
         public int? ProcessId => Process?.Id;
 
         protected readonly WorkerPoolSetting _workerSetting;
+        protected readonly ITelemetryManager _telemetryManager;
         protected AutoResetEvent _receivedWaitEvent = new AutoResetEvent(false);
 
         /// <summary>
@@ -50,10 +52,14 @@ namespace MessageWorkerPool
         /// </summary>
         public string WorkerId => Process?.Id.ToString() ?? "unknown";
 
-        protected WorkerBase(WorkerPoolSetting workerSetting, ILogger logger)
+        protected WorkerBase(
+            WorkerPoolSetting workerSetting,
+            ILogger logger,
+            ITelemetryManager telemetryManager = null)
         {
             _workerSetting = workerSetting;
             Logger = logger;
+            _telemetryManager = telemetryManager ?? new TelemetryManager(NoOpTelemetryProvider.Instance);
         }
 
         protected ILogger Logger { get; }
@@ -70,8 +76,8 @@ namespace MessageWorkerPool
             {
                 Logger.LogInformation("Executing GracefulShutDownAsync!");
                 _status = WorkerStatus.Stopping;
-                
-                using (var activity = TelemetryManager.StartShutdownActivity(WorkerId))
+
+                using (var activity = _telemetryManager.StartShutdownActivity(WorkerId))
                 {
                     try
                     {
@@ -81,7 +87,7 @@ namespace MessageWorkerPool
                     }
                     catch (Exception ex)
                     {
-                        TelemetryManager.RecordException(activity, ex);
+                        _telemetryManager.RecordException(activity, ex);
                         throw;
                     }
                 }
@@ -121,7 +127,7 @@ namespace MessageWorkerPool
         /// <param name="token">Cancellation token for stopping the initialization.</param>
         public async Task InitWorkerAsync(CancellationToken token)
         {
-            using (var activity = TelemetryManager.StartWorkerInitActivity("pending", _workerSetting.QueueName))
+            using (var activity = _telemetryManager.StartWorkerInitActivity("pending", _workerSetting.QueueName))
             {
                 try
                 {
@@ -143,14 +149,14 @@ namespace MessageWorkerPool
                     {
                         activity?.SetTag("worker.id", WorkerId);
                         activity?.SetTag("process.id", Process.Id);
-                        
+
                         await InitialDataStreamPipeAsync().ConfigureAwait(false);
                         SetupMessageQueueSetting(token);
                     }
                 }
                 catch (Exception ex)
                 {
-                    TelemetryManager.RecordException(activity, ex);
+                    _telemetryManager.RecordException(activity, ex);
                     throw;
                 }
             }

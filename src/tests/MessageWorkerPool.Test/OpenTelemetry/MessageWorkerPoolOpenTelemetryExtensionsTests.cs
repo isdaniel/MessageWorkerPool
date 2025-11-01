@@ -11,15 +11,8 @@ using Xunit;
 namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 {
     [Collection("TelemetryTests")]
-    public class MessageWorkerPoolOpenTelemetryExtensionsTests : IDisposable
+    public class MessageWorkerPoolOpenTelemetryExtensionsTests
     {
-        public void Dispose()
-        {
-            // Clean up - reset to NoOp provider after each test
-            TelemetryManager.SetProvider(NoOpTelemetryProvider.Instance);
-            TelemetryManager.SetTraceContextExtractor(null);
-        }
-
         [Fact]
         public void AddMessageWorkerPoolOpenTelemetry_ShouldSetOpenTelemetryProvider()
         {
@@ -28,9 +21,11 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 
             // Act
             services.AddMessageWorkerPoolOpenTelemetry();
+            var serviceProvider = services.BuildServiceProvider();
+            var telemetryManager = serviceProvider.GetRequiredService<ITelemetryManager>();
 
             // Assert
-            TelemetryManager.Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
         }
 
         [Fact]
@@ -41,9 +36,11 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 
             // Act
             services.AddMessageWorkerPoolOpenTelemetry("CustomService", "2.0.0");
+            var serviceProvider = services.BuildServiceProvider();
+            var telemetryManager = serviceProvider.GetRequiredService<ITelemetryManager>();
 
             // Assert
-            var provider = TelemetryManager.Provider as MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider;
+            var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider as MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider;
             provider.Should().NotBeNull();
         }
 
@@ -55,6 +52,8 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 
             // Act
             services.AddMessageWorkerPoolOpenTelemetry();
+            var serviceProvider = services.BuildServiceProvider();
+            var telemetryManager = serviceProvider.GetRequiredService<ITelemetryManager>();
 
             // Assert - Verify extractor is set by testing extraction
             var headers = new System.Collections.Generic.Dictionary<string, object>
@@ -63,7 +62,7 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             };
 
             // Create a new telemetry instance which will use the extractor
-            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", null, headers);
+            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", null, telemetryManager, headers);
             telemetry.Should().NotBeNull();
         }
 
@@ -75,10 +74,12 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 
             // Act
             var result = services.AddMessageWorkerPoolOpenTelemetry();
+            var serviceProvider = services.BuildServiceProvider();
+            var telemetryManager = serviceProvider.GetRequiredService<ITelemetryManager>();
 
             // Assert
             result.Should().BeSameAs(services);
-            TelemetryManager.Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
         }
 
         [Fact]
@@ -115,7 +116,7 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
         {
             // Arrange
             var services = new ServiceCollection();
-            
+
             // Act & Assert
             services.AddOpenTelemetry()
                 .WithMetrics(metrics =>
@@ -159,7 +160,7 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
         {
             // Arrange
             var services = new ServiceCollection();
-            
+
             // Act & Assert
             services.AddOpenTelemetry()
                 .WithTracing(tracing =>
@@ -177,10 +178,11 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 
             // Act
             var result = services.AddMessageWorkerPoolTelemetry();
+            var serviceProvider = services.BuildServiceProvider();
 
             // Assert
             result.Should().BeSameAs(services);
-            TelemetryManager.Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
         }
 
         [Fact]
@@ -196,9 +198,10 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
                 options.ServiceVersion = "3.0.0";
                 options.EnableRuntimeInstrumentation = false;
             });
+            var serviceProvider = services.BuildServiceProvider();
 
             // Assert
-            TelemetryManager.Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
         }
 
         [Fact]
@@ -252,9 +255,10 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             {
                 options.EnableRuntimeInstrumentation = true;
             });
+            var serviceProvider = services.BuildServiceProvider();
 
             // Assert
-            TelemetryManager.Provider.Should().NotBeNull();
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
         }
 
         [Fact]
@@ -268,9 +272,10 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             {
                 options.EnableRuntimeInstrumentation = false;
             });
+            var serviceProvider = services.BuildServiceProvider();
 
             // Assert
-            TelemetryManager.Provider.Should().NotBeNull();
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
         }
 
         [Fact]
@@ -284,9 +289,10 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             {
                 options.EnableRuntimeInstrumentation = false;
             });
+            var serviceProvider = services.BuildServiceProvider();
 
             // Assert
-            TelemetryManager.Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
         }
 
         [Fact]
@@ -297,6 +303,8 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 
             // Act
             services.AddMessageWorkerPoolTelemetry();
+            var serviceProvider = services.BuildServiceProvider();
+            var telemetryManager = serviceProvider.GetRequiredService<ITelemetryManager>();
 
             // Assert - Verify extractor is set
             var headers = new System.Collections.Generic.Dictionary<string, object>
@@ -304,7 +312,7 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
                 { "traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01" }
             };
 
-            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", null, headers);
+            var telemetry = new TaskProcessingTelemetry("worker-1", "test-queue", "corr-123", null, telemetryManager, headers);
             telemetry.Should().NotBeNull();
         }
 
@@ -397,9 +405,10 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 
             // Act
             services.AddMessageWorkerPoolTelemetry(null);
+            var serviceProvider = services.BuildServiceProvider();
 
             // Assert
-            TelemetryManager.Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
         }
 
         [Fact]
@@ -419,7 +428,7 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             var serviceProvider = services.BuildServiceProvider();
 
             // Assert
-            TelemetryManager.Provider.Should().NotBeNull();
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
         }
 
         [Fact]
@@ -457,3 +466,4 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
         }
     }
 }
+

@@ -11,7 +11,7 @@ jobs:
   Integration-Test:
     strategy:
       matrix:
-        os: [ubuntu-22.04]
+        os: [ubuntu-22.04 , ubuntu-24.04 ]
         mqtype: [ rabbitmq,kafka ]
     runs-on: ${{ matrix.os }}
     steps:
@@ -51,5 +51,5 @@ jobs:
     - name: Upload chaos_script.log as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: chaos-script-log-${{ matrix.mqtype }}
+        name: chaos-script-log-${{ matrix.os }}-${{ matrix.mqtype }}
         path: ./src/tests/integrationTest/autoScript/chaos_script.log

@@ -9,6 +9,7 @@ using MessageWorkerPool.Extensions;
 using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 using MessageWorkerPool.Telemetry;
+using MessageWorkerPool.Telemetry.Abstractions;
 
 namespace MessageWorkerPool.KafkaMq
 {
@@ -32,8 +33,13 @@ namespace MessageWorkerPool.KafkaMq
         /// <param name="workerSetting">Settings for worker pooling.</param>
         /// <param name="kafkaSetting">Kafka configuration settings.</param>
         /// <param name="logger">Logger instance for logging messages.</param>
-        public KafkaMqWorker(WorkerPoolSetting workerSetting, KafkaSetting<TKey> kafkaSetting, ILogger logger)
-            : base(workerSetting, logger)
+        /// <param name="telemetryManager">The telemetry manager for tracking worker operations.</param>
+        public KafkaMqWorker(
+            WorkerPoolSetting workerSetting,
+            KafkaSetting<TKey> kafkaSetting,
+            ILogger logger,
+            ITelemetryManager telemetryManager = null)
+            : base(workerSetting, logger, telemetryManager)
         {
             _kafkaSetting = kafkaSetting;
             _cancellationTokenSource = new CancellationTokenSource();
@@ -69,9 +75,9 @@ namespace MessageWorkerPool.KafkaMq
                 {
                     // Consume a message from Kafka.
                     var result = _consumer.Consume(token);
-                    TelemetryManager.Metrics?.IncrementProcessingTasks();
+                    _telemetryManager.Metrics?.IncrementProcessingTasks();
                     await HandleMessageAsync(result).ConfigureAwait(false);
-                    TelemetryManager.Metrics?.DecrementProcessingTasks();
+                    _telemetryManager.Metrics?.DecrementProcessingTasks();
                 }
                 catch (OperationCanceledException)
                 {
@@ -94,7 +100,7 @@ namespace MessageWorkerPool.KafkaMq
             var headers = result.Message.Headers.ToDictionary(x => x.Key, x => Encoding.UTF8.GetString(x.GetValueBytes()));
             var correlationId = headers.TryGetValueOrDefault("CorrelationId");
 
-            using (var telemetry = new TaskProcessingTelemetry(WorkerId, _workerSetting.QueueName, correlationId, Logger))
+            using (var telemetry = new TaskProcessingTelemetry(WorkerId, _workerSetting.QueueName, correlationId, Logger, _telemetryManager))
             {
                 try
                 {

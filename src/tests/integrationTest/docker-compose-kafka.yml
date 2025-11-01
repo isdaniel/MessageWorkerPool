@@ -10,6 +10,7 @@ services:
         condition: service_healthy
     networks:
       - net-mq
+    restart: on-failure
   tradeworker:
     build:
       context: ../../
@@ -57,7 +58,8 @@ services:
     hostname: kafka1
     image: confluentinc/cp-kafka:7.8.0
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
     restart: always
@@ -72,12 +74,17 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_LOG_RETENTION_HOURS: 168
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Reduce coordinator load time for faster startup
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_ABORT_TIMED_OUT_TRANSACTION_CLEANUP_INTERVAL_MS: 10000
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      test: |
+        kafka-topics --bootstrap-server localhost:9092 --list && \
+        kafka-broker-api-versions --bootstrap-server localhost:9092
       interval: 10s
-      retries: 5
-      start_period: 30s
-      timeout: 5s
+      retries: 10
+      start_period: 40s
+      timeout: 10s
     networks:
       - net-mq
 networks:

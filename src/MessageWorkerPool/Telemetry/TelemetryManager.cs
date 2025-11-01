@@ -13,33 +13,33 @@ namespace MessageWorkerPool.Telemetry
     /// Central telemetry manager for WorkerPool operations.
     /// Provides a unified interface for all telemetry activities.
     /// </summary>
-    public static class TelemetryManager
+    public class TelemetryManager : ITelemetryManager
     {
-        private static ITelemetryProvider _provider = NoOpTelemetryProvider.Instance;
-        private static Func<IDictionary<string, object>, ActivityContext> _contextExtractor = TraceContextPropagation.ExtractTraceContext;
+        private readonly ITelemetryProvider _provider;
+        private readonly Func<IDictionary<string, object>, ActivityContext> _contextExtractor;
 
         /// <summary>
-        /// Sets the telemetry provider to use.
+        /// Initializes a new instance of TelemetryManager with a telemetry provider.
         /// </summary>
-        /// <param name="provider">The telemetry provider.</param>
-        public static void SetProvider(ITelemetryProvider provider)
+        /// <param name="provider">The telemetry provider to use.</param>
+        /// <param name="contextExtractor">Optional trace context extractor function.</param>
+        public TelemetryManager(
+            ITelemetryProvider provider,
+            Func<IDictionary<string, object>, ActivityContext> contextExtractor = null)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
-        }
-
-        /// <summary>
-        /// Sets a custom trace context extractor for extracting parent context from message headers.
-        /// </summary>
-        /// <param name="extractor">Function to extract ActivityContext from message headers.</param>
-        public static void SetTraceContextExtractor(Func<IDictionary<string, object>, ActivityContext> extractor)
-        {
-            _contextExtractor = extractor;
+            _contextExtractor = contextExtractor ?? TraceContextPropagation.ExtractTraceContext;
         }
 
         /// <summary>
         /// Gets the current telemetry provider.
         /// </summary>
-        public static ITelemetryProvider Provider => _provider;
+        public ITelemetryProvider Provider => _provider;
+
+        /// <summary>
+        /// Gets the metrics recorder.
+        /// </summary>
+        public IMetrics Metrics => _provider.Metrics;
 
         /// <summary>
         /// Starts a new activity for worker initialization.
@@ -47,7 +47,7 @@ namespace MessageWorkerPool.Telemetry
         /// <param name="workerId">The worker ID.</param>
         /// <param name="queueName">The queue name.</param>
         /// <returns>An Activity instance or null if not enabled.</returns>
-        public static IActivity StartWorkerInitActivity(string workerId, string queueName)
+        public IActivity StartWorkerInitActivity(string workerId, string queueName)
         {
             var activity = _provider.StartActivity("Worker.Init");
             activity?.SetTag("worker.id", workerId);
@@ -63,7 +63,7 @@ namespace MessageWorkerPool.Telemetry
         /// <param name="correlationId">The correlation ID of the task.</param>
         /// <param name="messageHeaders">Optional message headers for trace context propagation.</param>
         /// <returns>An Activity instance or null if not enabled.</returns>
-        public static IActivity StartTaskProcessingActivity(
+        public IActivity StartTaskProcessingActivity(
             string workerId,
             string queueName,
             string correlationId,
@@ -106,7 +106,7 @@ namespace MessageWorkerPool.Telemetry
         /// <param name="correlationId">The correlation ID of the task.</param>
         /// <param name="messageHeaders">Optional message headers for trace context propagation.</param>
         /// <returns>An Activity instance or null if not enabled.</returns>
-        public static IActivity StartTaskProcessingActivity(
+        public IActivity StartTaskProcessingActivity(
             string workerId,
             string queueName,
             string correlationId,
@@ -132,7 +132,7 @@ namespace MessageWorkerPool.Telemetry
         /// <param name="workerCount">The number of workers in the pool.</param>
         /// <param name="queueName">The queue name.</param>
         /// <returns>An Activity instance or null if not enabled.</returns>
-        public static IActivity StartPoolInitActivity(int workerCount, string queueName)
+        public IActivity StartPoolInitActivity(int workerCount, string queueName)
         {
             var activity = _provider.StartActivity("WorkerPool.Init");
             activity?.SetTag("workerpool.worker_count", workerCount);
@@ -145,7 +145,7 @@ namespace MessageWorkerPool.Telemetry
         /// </summary>
         /// <param name="workerId">The worker ID.</param>
         /// <returns>An Activity instance or null if not enabled.</returns>
-        public static IActivity StartShutdownActivity(string workerId)
+        public IActivity StartShutdownActivity(string workerId)
         {
             var activity = _provider.StartActivity("Worker.Shutdown");
             activity?.SetTag("worker.id", workerId);
@@ -157,7 +157,7 @@ namespace MessageWorkerPool.Telemetry
         /// </summary>
         /// <param name="activity">The activity to record the exception in.</param>
         /// <param name="exception">The exception to record.</param>
-        public static void RecordException(IActivity activity, Exception exception)
+        public void RecordException(IActivity activity, Exception exception)
         {
             if (activity == null || exception == null)
                 return;
@@ -171,7 +171,7 @@ namespace MessageWorkerPool.Telemetry
         /// </summary>
         /// <param name="activity">The activity to update.</param>
         /// <param name="status">The message status.</param>
-        public static void SetTaskStatus(IActivity activity, MessageStatus status)
+        public void SetTaskStatus(IActivity activity, MessageStatus status)
         {
             if (activity == null)
                 return;
@@ -192,11 +192,6 @@ namespace MessageWorkerPool.Telemetry
                     break;
             }
         }
-
-        /// <summary>
-        /// Gets the metrics recorder.
-        /// </summary>
-        public static IMetrics Metrics => _provider.Metrics;
     }
 
     /// <summary>

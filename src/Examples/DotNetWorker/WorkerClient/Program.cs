@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MessageWorkerPool.Utilities;
 using MessageWorkerPool.Telemetry;
+using MessageWorkerPool.Telemetry.Abstractions;
 using MessageWorkerPool.OpenTelemetry.Extensions;
 using MessageWorkerPool.OpenTelemetry;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,8 +42,8 @@ namespace WorkerClient
             using var serviceProvider = serviceCollection.BuildServiceProvider();
             _ = serviceProvider.GetService<TracerProvider>();
 
-            // Configure TelemetryManager to extract trace context from message headers
-            TelemetryManager.SetTraceContextExtractor(TraceContextPropagation.ExtractTraceContext);
+            // Get the telemetry manager from DI
+            var telemetryManager = serviceProvider.GetRequiredService<ITelemetryManager>();
 
 
             MessageProcessor processor = new MessageProcessor();
@@ -52,7 +53,7 @@ namespace WorkerClient
 
                 // Start activity with parent context from task headers
                 // The TelemetryManager will extract the trace context from headers automatically
-                using var activity = TelemetryManager.StartTaskProcessingActivity(
+                using var activity = telemetryManager.StartTaskProcessingActivity(
                     "worker-client",
                     task.OriginalQueueName ?? "unknown",
                     task.CorrelationId,
@@ -66,7 +67,7 @@ namespace WorkerClient
                 await Task.Delay(1000,token).ConfigureAwait(false);
 
                 activity?.SetTag("processing.result", "success");
-                TelemetryManager.SetTaskStatus(activity, MessageStatus.MESSAGE_DONE);
+                telemetryManager.SetTaskStatus(activity, MessageStatus.MESSAGE_DONE);
                 return new MessageOutputTask()
                 {
                     Message = "Processed successfully!",

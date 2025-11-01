@@ -7,7 +7,7 @@ using FluentAssertions;
 
 namespace IntegrationTester
 {
-    
+
     public class LongRunningBatchFixture : IDisposable
     {
         public MessageClient<Null> MessageClient { get; }
@@ -20,7 +20,15 @@ namespace IntegrationTester
                 {
                     BootstrapServers = EnvironmentVAR.HOSTNAME,
                     Acks = Acks.All,
-                    EnableIdempotence = true
+                    EnableIdempotence = true,
+                    // Add connection timeouts to prevent indefinite hangs
+                    RequestTimeoutMs = 30000,      // 30 seconds for requests
+                    MessageTimeoutMs = 60000,      // 60 seconds for message delivery
+                    SocketTimeoutMs = 10000,       // 10 seconds for socket operations
+                    MetadataMaxAgeMs = 30000,      // Refresh metadata every 30 seconds
+                    // Reduce retries to fail faster in case of issues
+                    MessageSendMaxRetries = 3,
+                    RetryBackoffMs = 1000
                 },
                 ConsumerCfg = new ConsumerConfig()
                 {
@@ -28,6 +36,10 @@ namespace IntegrationTester
                     GroupId = EnvironmentVAR.GROUPID,
                     AutoOffsetReset = AutoOffsetReset.Earliest,
                     EnableAutoCommit = false,
+                    // Add connection timeouts for consumer
+                    SessionTimeoutMs = 30000,
+                    SocketTimeoutMs = 10000,
+                    MetadataMaxAgeMs = 30000
                 },
                 Topic = QueueName
             });

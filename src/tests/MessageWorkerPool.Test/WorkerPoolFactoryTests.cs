@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.Telemetry.Abstractions;
 using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
@@ -31,7 +32,7 @@ namespace MessageWorkerPool.Test
 
             // Assert
             var rabbitMqWorkerPool = Assert.IsType<RabbitMqWorkerPool>(workerPool);
-            rabbitMqWorkerPool.ProcessCount.Should().Be(5); 
+            rabbitMqWorkerPool.ProcessCount.Should().Be(5);
         }
 
         [Fact]
@@ -79,7 +80,7 @@ namespace MessageWorkerPool.Test
 
             // Assert
             var rabbitMqWorkerPool = Assert.IsType<RabbitMqWorkerPool>(workerPool);
-            Assert.Equal(4, rabbitMqWorkerPool.ProcessCount); 
+            Assert.Equal(4, rabbitMqWorkerPool.ProcessCount);
         }
 
         [Fact]
@@ -184,7 +185,7 @@ namespace MessageWorkerPool.Test
 
     class CustomWorkerPool<TKey> : IWorkerPool
     {
-        public CustomWorkerPool(CustomMqSetting<TKey> setting, WorkerPoolSetting poolSetting, ILoggerFactory loggerFactory) { }
+        public CustomWorkerPool(CustomMqSetting<TKey> setting, WorkerPoolSetting poolSetting, ILoggerFactory loggerFactory, ITelemetryManager telemetryManager) { }
 
         public void Dispose()
         {
