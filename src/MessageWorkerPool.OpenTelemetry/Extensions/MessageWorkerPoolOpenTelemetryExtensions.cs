@@ -2,7 +2,6 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using MessageWorkerPool.Telemetry;
 using MessageWorkerPool.Telemetry.Abstractions;
-using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;

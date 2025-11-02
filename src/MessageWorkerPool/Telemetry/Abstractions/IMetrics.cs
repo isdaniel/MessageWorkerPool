@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace MessageWorkerPool.Telemetry.Abstractions
 {
     /// <summary>

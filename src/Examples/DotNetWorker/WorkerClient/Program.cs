@@ -1,12 +1,8 @@
 using System;
-using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using MessageWorkerPool.Utilities;
-using MessageWorkerPool.Telemetry;
 using MessageWorkerPool.Telemetry.Abstractions;
 using MessageWorkerPool.OpenTelemetry.Extensions;
-using MessageWorkerPool.OpenTelemetry;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Trace;
 using OpenTelemetry;

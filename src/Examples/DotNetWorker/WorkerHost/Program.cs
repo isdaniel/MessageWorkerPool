@@ -1,11 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using MessageWorkerPool;
-using MessageWorkerPool.RabbitMq;
 using Microsoft.Extensions.Logging;
-using MessageWorkerPool.Extensions;
 using MessageWorkerPool.OpenTelemetry.Extensions;
-using MessageWorkerPool.OpenTelemetry;
-using MessageWorkerPool.Telemetry;
+using MessageWorkerPool.RabbitMQ.Extensions;
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Console;
@@ -14,6 +11,7 @@ using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using OpenTelemetry.Exporter;
+using MessageWorkerPool.RabbitMQ;
 
 namespace WorkerHost
 {

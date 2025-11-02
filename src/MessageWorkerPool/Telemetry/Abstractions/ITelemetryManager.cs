@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using MessageWorkerPool.Utilities;
 
 namespace MessageWorkerPool.Telemetry.Abstractions

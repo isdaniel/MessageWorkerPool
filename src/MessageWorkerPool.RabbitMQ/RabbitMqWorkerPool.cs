@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using MessageWorkerPool.Telemetry;
 using MessageWorkerPool.Telemetry.Abstractions;
 using RabbitMQ.Client;
 using System;

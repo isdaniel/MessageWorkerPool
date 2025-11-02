@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using MessageWorkerPool.Telemetry;
 using MessageWorkerPool.Telemetry.Abstractions;
 using System.Linq;
-using MessageWorkerPool.Utilities;
 
 namespace MessageWorkerPool
 {
