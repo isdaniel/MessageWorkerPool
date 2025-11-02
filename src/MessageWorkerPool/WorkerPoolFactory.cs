@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using MessageWorkerPool.RabbitMq;
 using MessageWorkerPool.Telemetry;
 using MessageWorkerPool.Telemetry.Abstractions;
 using MessageWorkerPool.Utilities;
@@ -54,7 +53,6 @@ namespace MessageWorkerPool
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
             _telemetryManager = telemetryManager ?? new TelemetryManager(NoOpTelemetryProvider.Instance);
             _registry = new Dictionary<Type, Func<MqSettingBase, WorkerPoolSetting, ILoggerFactory, ITelemetryManager, IWorkerPool>>();
-            RegisterGeneric<RabbitMqSetting, RabbitMqWorkerPool>();
         }
 
 

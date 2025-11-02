@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 using MessageWorkerPool.Telemetry;
 using MessageWorkerPool.Telemetry.Abstractions;
 
-namespace MessageWorkerPool.KafkaMq
+namespace MessageWorkerPool.Kafka
 {
     /// <summary>
     /// KafkaMqWorker is responsible for consuming messages from a Kafka topic and processing them.
@@ -60,7 +60,7 @@ namespace MessageWorkerPool.KafkaMq
             var taskToken = CancellationTokenSource.CreateLinkedTokenSource(_cancellationTokenSource.Token, token).Token;
 
             // Start the message consumption loop in a separate task.
-            _consumptionTask = Task.Run(async () => await StartMessageConsumptionLoop(taskToken));
+            _consumptionTask = Task.Run(async () => await StartMessageConsumptionLoop(taskToken).ConfigureAwait(false));
         }
 
         /// <summary>
@@ -125,7 +125,7 @@ namespace MessageWorkerPool.KafkaMq
                     // If the message processing is completed, handle the successful message.
                     if (_messageDoneMap.Contains(taskOutput.Status))
                     {
-                        await HandleSuccessfulMessage(result, headers, taskOutput);
+                        await HandleSuccessfulMessage(result, headers, taskOutput).ConfigureAwait(false);
                         telemetry.RecordSuccess(taskOutput.Status);
                     }
                     else

@@ -23,6 +23,18 @@ To install the `MessageWorkerPool` package, use the following NuGet command:
 PM > Install-Package MessageWorkerPool
 ```
 
+For RabbitMQ support, install:
+
+```sh
+PM > Install-Package MessageWorkerPool.RabbitMQ
+```
+
+For Kafka support, install:
+
+```sh
+PM > Install-Package MessageWorkerPool.Kafka
+```
+
 For OpenTelemetry support, also install:
 
 ```sh
@@ -39,9 +51,11 @@ dotnet build
 
 ## NuGet Packages
 
-This project provides two NuGet packages:
+This project provides multiple NuGet packages:
 
-- **MessageWorkerPool**: Core library for managing worker process pools with RabbitMQ and Kafka integration
+- **MessageWorkerPool**: Core library for managing worker process pools (framework-agnostic)
+- **MessageWorkerPool.RabbitMQ**: RabbitMQ implementation for worker pools
+- **MessageWorkerPool.Kafka**: Kafka implementation for worker pools
 - **MessageWorkerPool.OpenTelemetry**: OpenTelemetry extensions for distributed tracing and metrics collection
 
 
@@ -163,8 +177,8 @@ Here is the sample code for creating and configuring a worker pool that interact
 
 ```c#
 using Microsoft.Extensions.DependencyInjection;
-using MessageWorkerPool.RabbitMq;
-using MessageWorkerPool.Extensions;
+using MessageWorkerPool.RabbitMQ;
+using MessageWorkerPool.RabbitMQ.Extensions;
 using MessageWorkerPool.OpenTelemetry.Extensions;
 using Microsoft.AspNetCore.Builder;
 using OpenTelemetry.Exporter;
@@ -263,6 +277,11 @@ Here are header setting framework support when we use kafka workerpool.
 * CorrelationId: message CorrelationId.
 
 ```c#
+using Microsoft.Extensions.DependencyInjection;
+using MessageWorkerPool.Kafka;
+using MessageWorkerPool.Kafka.Extensions;
+using Confluent.Kafka;
+
 public static async Task Main(string[] args)
 {
    var builder = CreateHostBuilder(args);

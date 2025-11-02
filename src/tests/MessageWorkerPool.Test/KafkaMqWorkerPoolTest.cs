@@ -1,5 +1,5 @@
 using FluentAssertions;
-using MessageWorkerPool.KafkaMq;
+using MessageWorkerPool.Kafka;
 using Microsoft.Extensions.Logging;
 using Moq;
 

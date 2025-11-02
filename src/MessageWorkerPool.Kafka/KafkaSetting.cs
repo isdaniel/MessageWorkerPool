@@ -2,7 +2,7 @@ using System;
 using Confluent.Kafka;
 using MessageWorkerPool.Utilities;
 
-namespace MessageWorkerPool.KafkaMq
+namespace MessageWorkerPool.Kafka
 {
     /// <summary>
     /// Represents Kafka-specific settings and configurations for producers and consumers.

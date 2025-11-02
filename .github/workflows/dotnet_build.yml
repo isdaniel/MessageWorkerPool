@@ -72,28 +72,29 @@ jobs:
       if: env.NUGET_PUSH_SUCCESS == 'true'
       run: |
         PACKAGE_FILES=$(ls ./src/nupkg/*.nupkg)
-        
-        # Extract versions from both packages
-        MAIN_PACKAGE=$(echo "$PACKAGE_FILES" | grep -E 'MessageWorkerPool\.[0-9]+\.[0-9]+\.[0-9]+' | grep -v 'OpenTelemetry')
-        OTEL_PACKAGE=$(echo "$PACKAGE_FILES" | grep 'MessageWorkerPool.OpenTelemetry')
-        
-        if [ -n "$MAIN_PACKAGE" ]; then
-          MAIN_VERSION=$(echo "$MAIN_PACKAGE" | grep -oP '(?<=MessageWorkerPool\.)\d+\.\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)?')
-          if [ -n "$MAIN_VERSION" ]; then
-            TAG_NAME="$MAIN_VERSION"
-            echo "Creating tag: $TAG_NAME"
-            git tag "$TAG_NAME" || echo "Tag $TAG_NAME already exists"
-            git push origin "$TAG_NAME" || echo "Failed to push tag $TAG_NAME"
+
+        # Function to create and push tag
+        create_tag() {
+          local package_pattern=$1
+          local package_name=$2
+          local tag_prefix=$3
+
+          local PACKAGE=$(echo "$PACKAGE_FILES" | grep "$package_pattern")
+
+          if [ -n "$PACKAGE" ]; then
+            local VERSION=$(echo "$PACKAGE" | grep -oP '(?<='"$package_name"'\.)\d+\.\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)?')
+            if [ -n "$VERSION" ]; then
+              local TAG_NAME="${tag_prefix}${VERSION}"
+              echo "Creating tag: $TAG_NAME"
+              git tag "$TAG_NAME" || echo "Tag $TAG_NAME already exists"
+              git push origin "$TAG_NAME" || echo "Failed to push tag $TAG_NAME"
+            fi
           fi
-        fi
-        
-        if [ -n "$OTEL_PACKAGE" ]; then
-          OTEL_VERSION=$(echo "$OTEL_PACKAGE" | grep -oP '(?<=MessageWorkerPool\.OpenTelemetry\.)\d+\.\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9]+)?')
-          if [ -n "$OTEL_VERSION" ]; then
-            TAG_NAME="opentelemetry-$OTEL_VERSION"
-            echo "Creating tag: $TAG_NAME"
-            git tag "$TAG_NAME" || echo "Tag $TAG_NAME already exists"
-            git push origin "$TAG_NAME" || echo "Failed to push tag $TAG_NAME"
-          fi
-        fi
+        }
+
+        # Create tags for all packages
+        create_tag 'MessageWorkerPool\.[0-9]' 'MessageWorkerPool' ''
+        create_tag 'MessageWorkerPool\.OpenTelemetry' 'MessageWorkerPool.OpenTelemetry' 'opentelemetry-'
+        create_tag 'MessageWorkerPool\.RabbitMQ' 'MessageWorkerPool.RabbitMQ' 'rabbitmq-'
+        create_tag 'MessageWorkerPool\.Kafka' 'MessageWorkerPool.Kafka' 'kafka-'
 

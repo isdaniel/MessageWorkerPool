@@ -1,7 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MessageWorkerPool;
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMQ;
+using MessageWorkerPool.RabbitMQ.Extensions;
 using Microsoft.Extensions.Logging;
 using MessageWorkerPool.Extensions;
 using System;
@@ -13,7 +14,8 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Logging.Abstractions;
-using MessageWorkerPool.KafkaMq;
+using MessageWorkerPool.Kafka;
+using MessageWorkerPool.Kafka.Extensions;
 using Confluent.Kafka;
 
 public static class EnvironmentVAR

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MessageWorkerPool.Telemetry.Abstractions;
 
-namespace MessageWorkerPool.KafkaMq
+namespace MessageWorkerPool.Kafka
 {
     public class KafkaMqWorkerPool<TKey> : WorkerPoolBase
     {

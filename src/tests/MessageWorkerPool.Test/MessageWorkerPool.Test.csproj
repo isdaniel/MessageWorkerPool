@@ -31,6 +31,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\MessageWorkerPool\MessageWorkerPool.csproj" />
     <ProjectReference Include="..\..\MessageWorkerPool.OpenTelemetry\MessageWorkerPool.OpenTelemetry.csproj" />
+    <ProjectReference Include="..\..\MessageWorkerPool.RabbitMQ\MessageWorkerPool.RabbitMQ.csproj" />
+    <ProjectReference Include="..\..\MessageWorkerPool.Kafka\MessageWorkerPool.Kafka.csproj" />
   </ItemGroup>
 
 </Project>

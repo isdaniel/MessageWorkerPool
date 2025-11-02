@@ -1,4 +1,4 @@
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMQ;
 using MessageWorkerPool.Telemetry.Abstractions;
 using Microsoft.Extensions.Logging;
 using Moq;

@@ -5,8 +5,8 @@ using System.Text.Json;
 using FluentAssertions;
 using MessageWorkerPool.Extensions;
 using MessageWorkerPool.IO;
-using MessageWorkerPool.KafkaMq;
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.Kafka;
+using MessageWorkerPool.RabbitMQ;
 using MessageWorkerPool.Test.Utility;
 using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
@@ -174,7 +174,7 @@ namespace MessageWorkerPool.Test
             worker.pipeStream.Verify(x => x.ReadAsync<MessageOutputTask>(), Times.Once);
             worker.pipeStream.Verify(x => x.WriteAsync(It.IsAny<MessageInputTask>()), Times.Once);
             VerifyLogging(message);
-           
+
             await worker.GracefulShutDownAsync(CancellationToken.None);
             worker.mockProcess.Verify(x => x.Close(), Times.Once);
             worker.mockProcess.Verify(x => x.Dispose(), Times.Once);

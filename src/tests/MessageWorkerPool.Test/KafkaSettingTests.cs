@@ -1,6 +1,6 @@
 using Confluent.Kafka;
 using FluentAssertions;
-using MessageWorkerPool.KafkaMq;
+using MessageWorkerPool.Kafka;
 using Moq;
 
 namespace MessageWorkerPool.Test
@@ -113,7 +113,7 @@ namespace MessageWorkerPool.Test
             {
                 ProducerCfg = new ProducerConfig()
                 {
-                   
+
                 }
             };
 
