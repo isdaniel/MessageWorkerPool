@@ -2,7 +2,7 @@ using System;
 using MessageWorkerPool.Utilities;
 using RabbitMQ.Client;
 
-namespace MessageWorkerPool.RabbitMq
+namespace MessageWorkerPool.RabbitMQ
 {
     public class RabbitMqSetting : MqSettingBase
     {

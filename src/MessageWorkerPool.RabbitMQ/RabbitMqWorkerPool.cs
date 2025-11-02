@@ -5,7 +5,7 @@ using RabbitMQ.Client;
 using System;
 
 
-namespace MessageWorkerPool.RabbitMq
+namespace MessageWorkerPool.RabbitMQ
 {
     public class RabbitMqWorkerPool : WorkerPoolBase
     {

@@ -17,6 +17,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "TaskWorker", "TaskWorker", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LongRunningTaskWorker", "trade_worker\LongRunningTaskWorker\LongRunningTaskWorker.csproj", "{5FAFE765-B106-4E96-9A2D-55C12D5C642E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MessageWorkerPool.Kafka", "..\..\MessageWorkerPool.Kafka\MessageWorkerPool.Kafka.csproj", "{21CF2093-CEE6-89F5-F1CF-EBB181AC6262}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MessageWorkerPool.RabbitMQ", "..\..\MessageWorkerPool.RabbitMQ\MessageWorkerPool.RabbitMQ.csproj", "{F237B716-D569-9367-E32E-9AAC5991FEEC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +51,14 @@ Global
 		{5FAFE765-B106-4E96-9A2D-55C12D5C642E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5FAFE765-B106-4E96-9A2D-55C12D5C642E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5FAFE765-B106-4E96-9A2D-55C12D5C642E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{21CF2093-CEE6-89F5-F1CF-EBB181AC6262}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21CF2093-CEE6-89F5-F1CF-EBB181AC6262}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21CF2093-CEE6-89F5-F1CF-EBB181AC6262}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21CF2093-CEE6-89F5-F1CF-EBB181AC6262}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F237B716-D569-9367-E32E-9AAC5991FEEC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F237B716-D569-9367-E32E-9AAC5991FEEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F237B716-D569-9367-E32E-9AAC5991FEEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F237B716-D569-9367-E32E-9AAC5991FEEC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

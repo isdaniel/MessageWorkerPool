@@ -16,7 +16,7 @@ using MessageWorkerPool.Telemetry.Abstractions;
 /// Represents a worker that processes messages from a RabbitMQ queue.
 /// The worker communicates with an external process through standard input/output and handles message acknowledgment or rejection based on processing outcomes.
 /// </summary>
-namespace MessageWorkerPool.RabbitMq
+namespace MessageWorkerPool.RabbitMQ
 {
     /// <summary>
     /// worker base to handle infrastructure and connection matter, export an Execute method let subclass implement their logic

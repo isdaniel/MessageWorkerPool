@@ -1,13 +1,13 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using MessageWorkerPool.KafkaMq;
+using MessageWorkerPool.Kafka;
 using Confluent.Kafka;
 using MessageWorkerPool.Utilities;
 using System.Text;
 using MessageWorkerPool.Test.Utility;
 using System.Text.Json;
 using FluentAssertions;
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMQ;
 using System.Threading.Channels;
 using Microsoft.VisualStudio.TestPlatform.CommunicationUtilities;
 

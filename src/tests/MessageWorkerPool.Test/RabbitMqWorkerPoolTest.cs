@@ -1,4 +1,4 @@
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMQ;
 using FluentAssertions;
 using Moq;
 using Microsoft.Extensions.Logging;
@@ -360,7 +360,7 @@ namespace MessageWorkerPool.Test
 
             // Assert
             Assert.NotNull(connection);
-            Assert.Equal(1, invocationCount); 
+            Assert.Equal(1, invocationCount);
         }
 
         [Fact]

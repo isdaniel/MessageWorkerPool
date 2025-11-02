@@ -1,10 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
 using MessageWorkerPool.Extensions;
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMQ;
+using MessageWorkerPool.RabbitMQ.Extensions;
 using FluentAssertions;
 using Microsoft.Extensions.Hosting;
 using MessageWorkerPool.Utilities;
-using MessageWorkerPool.KafkaMq;
+using MessageWorkerPool.Kafka;
+using MessageWorkerPool.Kafka.Extensions;
 using FluentAssertions.Common;
 
 namespace MessageWorkerPool.Test
@@ -451,7 +453,7 @@ namespace MessageWorkerPool.Test
 
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() =>
-                MessageWorkerPoolExtension.AddKafkaMqWorkerPool(services, kafkaSetting, workerSettings)
+                KafkaMqWorkerPoolExtension.AddKafkaMqWorkerPool(services, kafkaSetting, workerSettings)
             );
         }
 
@@ -465,7 +467,7 @@ namespace MessageWorkerPool.Test
 
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() =>
-                MessageWorkerPoolExtension.AddKafkaMqWorkerPool(services, kafkaSetting, workerSettings)
+                KafkaMqWorkerPoolExtension.AddKafkaMqWorkerPool(services, kafkaSetting, workerSettings)
             );
         }
 
@@ -479,7 +481,7 @@ namespace MessageWorkerPool.Test
 
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() =>
-                MessageWorkerPoolExtension.AddKafkaMqWorkerPool(services, kafkaSetting, workerSettings)
+                KafkaMqWorkerPoolExtension.AddKafkaMqWorkerPool(services, kafkaSetting, workerSettings)
             );
         }
 
@@ -497,7 +499,7 @@ namespace MessageWorkerPool.Test
 
             // Act & Assert
             Assert.Throws<InvalidOperationException>(() =>
-                MessageWorkerPoolExtension.AddKafkaMqWorkerPool(services, kafkaSetting, workerSettings)
+                KafkaMqWorkerPoolExtension.AddKafkaMqWorkerPool(services, kafkaSetting, workerSettings)
             );
         }
 
@@ -513,7 +515,7 @@ namespace MessageWorkerPool.Test
             };
 
             // Act
-            var result = MessageWorkerPoolExtension.AddKafkaMqWorkerPool(hostBuilder, kafkaSetting, workerSettings);
+            var result = KafkaMqWorkerPoolExtension.AddKafkaMqWorkerPool(hostBuilder, kafkaSetting, workerSettings);
 
             // Assert
             result.Should().NotBeNull();
@@ -529,7 +531,7 @@ namespace MessageWorkerPool.Test
 
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() =>
-                MessageWorkerPoolExtension.AddKafkaMqWorkerPool(hostBuilder, kafkaSetting, workerSettings)
+                KafkaMqWorkerPoolExtension.AddKafkaMqWorkerPool(hostBuilder, kafkaSetting, workerSettings)
             );
         }
 

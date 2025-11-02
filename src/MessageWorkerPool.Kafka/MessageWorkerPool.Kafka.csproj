@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <PackageId>MessageWorkerPool.Kafka</PackageId>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Authors>Daniel_Shih</Authors>
+    <PackageTags>C#,multiple-processes,Messaging,Kafka</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/isdaniel/MessageWorkerPool</PackageProjectUrl>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <Version>0.3.0</Version>
+    <PackageReleaseNotes>Kafka worker pool implementation</PackageReleaseNotes>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Confluent.Kafka" Version="2.6.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MessageWorkerPool\MessageWorkerPool.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,5 +1,5 @@
 using FluentAssertions;
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMQ;
 using MessageWorkerPool.Telemetry.Abstractions;
 using MessageWorkerPool.Utilities;
 using Microsoft.Extensions.Logging;
@@ -26,6 +26,7 @@ namespace MessageWorkerPool.Test
             var poolSetting = new WorkerPoolSetting { WorkerUnitCount = 5 };
 
             var workerPoolFactory = new WorkerPoolFactory(rabbitMqSetting, mockLoggerFactory.Object);
+            workerPoolFactory.RegisterGeneric<RabbitMqSetting, RabbitMqWorkerPool>();
 
             // Act
             var workerPool = workerPoolFactory.CreateWorkerPool(poolSetting);
@@ -74,6 +75,7 @@ namespace MessageWorkerPool.Test
             var poolSetting = new WorkerPoolSetting { WorkerUnitCount = 4 };
 
             var workerPoolFactory = new WorkerPoolFactory(rabbitMqSetting, mockLoggerFactory.Object);
+            workerPoolFactory.RegisterGeneric<RabbitMqSetting, RabbitMqWorkerPool>();
 
             // Act
             var workerPool = workerPoolFactory.CreateWorkerPool(poolSetting);
@@ -99,6 +101,7 @@ namespace MessageWorkerPool.Test
             var poolSetting2 = new WorkerPoolSetting { WorkerUnitCount = 5 };
 
             var workerPoolFactory = new WorkerPoolFactory(rabbitMqSetting, mockLoggerFactory.Object);
+            workerPoolFactory.RegisterGeneric<RabbitMqSetting, RabbitMqWorkerPool>();
 
             // Act
             var workerPool1 = workerPoolFactory.CreateWorkerPool(poolSetting1);
@@ -137,6 +140,7 @@ namespace MessageWorkerPool.Test
             var poolSetting = new WorkerPoolSetting { WorkerUnitCount = 5 }; // Providing custom pool settings
 
             var workerPoolFactory = new WorkerPoolFactory(rabbitMqSetting, mockLoggerFactory.Object);
+            workerPoolFactory.RegisterGeneric<RabbitMqSetting, RabbitMqWorkerPool>();
 
             // Act
             var workerPool = workerPoolFactory.CreateWorkerPool(poolSetting);

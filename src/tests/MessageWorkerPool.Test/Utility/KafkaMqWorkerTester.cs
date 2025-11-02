@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using Moq;
 using MessageWorkerPool.IO;
-using MessageWorkerPool.KafkaMq;
+using MessageWorkerPool.Kafka;
 using Confluent.Kafka;
 using FluentAssertions;
 
@@ -10,7 +10,7 @@ namespace MessageWorkerPool.Test.Utility
 {
     internal class KafkaMqWorkerTester : KafkaMqWorker<Null>
     {
-        
+
         internal bool GracefulReleaseCalled;
 
         public KafkaMqWorkerTester(WorkerPoolSetting workerSetting, KafkaSetting<Null> kafkaSetting, ILogger logger) : base(workerSetting, kafkaSetting, logger)

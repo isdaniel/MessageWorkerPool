@@ -14,11 +14,13 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
 		<PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
-    <PackageReference Include="Confluent.Kafka" Version="2.6.1" />
+        <PackageReference Include="Confluent.Kafka" Version="2.6.1" />
 	</ItemGroup>
 
 
 	<ItemGroup>
+	  <ProjectReference Include="..\..\..\..\MessageWorkerPool.Kafka\MessageWorkerPool.Kafka.csproj" />
+	  <ProjectReference Include="..\..\..\..\MessageWorkerPool.RabbitMQ\MessageWorkerPool.RabbitMQ.csproj" />
 	  <ProjectReference Include="..\..\..\..\MessageWorkerPool\MessageWorkerPool.csproj" />
 	</ItemGroup>
 

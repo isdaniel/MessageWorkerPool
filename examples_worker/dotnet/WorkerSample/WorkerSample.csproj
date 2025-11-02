@@ -6,7 +6,7 @@
 
 
 	<ItemGroup>
-		<PackageReference Include="MessageWorkerPool" Version="*" />
+		<PackageReference Include="MessageWorkerPool" Version="0.3.0" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />

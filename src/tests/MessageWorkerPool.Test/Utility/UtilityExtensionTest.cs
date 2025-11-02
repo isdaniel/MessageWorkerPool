@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using MessageWorkerPool.Extensions;
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMQ;
 using FluentAssertions;
 using Microsoft.Extensions.Hosting;
 using MessageWorkerPool.Utilities;

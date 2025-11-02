@@ -2,28 +2,21 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <OutputType>Library</OutputType>
-    <PackageId>MessageWorkerPool</PackageId>
+    <PackageId>MessageWorkerPool.RabbitMQ</PackageId>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Authors>Daniel_Shih</Authors>
-    <PackageTags>C#,multiple-processes,Messaging</PackageTags>
+    <PackageTags>C#,multiple-processes,Messaging,RabbitMQ</PackageTags>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/isdaniel/MessageWorkerPool</PackageProjectUrl>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <Version>0.3.0</Version>
-    <PackageReleaseNotes>New support Kafka worker pool, and rabbitMQ worker enhancement</PackageReleaseNotes>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>RabbitMQ implementation for MessageWorkerPool</PackageReleaseNotes>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Remove="Exceptions\**" />
-    <EmbeddedResource Remove="Exceptions\**" />
-    <None Remove="Exceptions\**" />
+    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="MessagePack" Version="3.1.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
-
-    <None Include="README.md" Pack="true" PackagePath="\" />
+    <ProjectReference Include="..\MessageWorkerPool\MessageWorkerPool.csproj" />
   </ItemGroup>
-
 </Project>

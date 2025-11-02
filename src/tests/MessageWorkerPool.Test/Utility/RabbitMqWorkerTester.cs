@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using Moq;
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMQ;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using MessageWorkerPool.IO;
@@ -59,7 +59,7 @@ namespace MessageWorkerPool.Test.Utility
             GracefulReleaseCalled = true; // Mark as executed
             await base.GracefulReleaseAsync(token).ConfigureAwait(false);
         }
-        
+
         public async Task<PipeStreamWrapper> TestCreateOperationPipeAsync(string pipeName)
         {
             return await CreateOperationPipeAsync(pipeName);
