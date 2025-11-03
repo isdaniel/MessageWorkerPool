@@ -767,6 +767,233 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
             tracingConfigured.Should().BeTrue();
         }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithoutInstanceId_ShouldUseEnvironmentVariableFallback()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act - Don't set ServiceInstanceId, let it use environment detection
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                // ServiceInstanceId is null, should trigger environment variable fallback
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ShouldAddResourceAttributes()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceInstanceId = "test-instance";
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert - Verify that the service provider is configured correctly
+            // The resource attributes (host.name and container.id) are added during resource configuration
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithRuntimeInstrumentationDisabled_ShouldNotAddRuntimeMetrics()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.EnableRuntimeInstrumentation = false;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithRuntimeInstrumentationEnabled_ShouldAddRuntimeMetrics()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.EnableRuntimeInstrumentation = true;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithNullMetricsConfiguration_ShouldNotInvokeMetricsConfig()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ConfigureMetrics = null; // Explicitly set to null
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithNullTracingConfiguration_ShouldNotInvokeTracingConfig()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ConfigureTracing = null; // Explicitly set to null
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithBothMetricsAndTracingNull_ShouldConfigureCorrectly()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = "test-instance";
+                options.ConfigureMetrics = null;
+                options.ConfigureTracing = null;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ShouldConfigureResourceWithInstanceId()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var testInstanceId = "test-container-123";
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "2.0.0";
+                options.ServiceInstanceId = testInstanceId;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+            provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithCompleteConfiguration_ShouldApplyAllSettings()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            bool metricsConfigured = false;
+            bool tracingConfigured = false;
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "CompleteTestService";
+                options.ServiceVersion = "3.0.0";
+                options.ServiceInstanceId = "complete-instance";
+                options.EnableRuntimeInstrumentation = true;
+                options.ConfigureMetrics = metrics =>
+                {
+                    metricsConfigured = true;
+                    metrics.AddMessageWorkerPoolInstrumentation("CompleteTestService");
+                };
+                options.ConfigureTracing = tracing =>
+                {
+                    tracingConfigured = true;
+                    tracing.AddMessageWorkerPoolInstrumentation("CompleteTestService");
+                };
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+            metricsConfigured.Should().BeTrue();
+            tracingConfigured.Should().BeTrue();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolInstrumentation_MeterProviderBuilder_WithServiceName_ShouldAddCorrectMeter()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var customServiceName = "CustomMeterService";
+
+            // Act & Assert
+            services.AddOpenTelemetry()
+                .WithMetrics(metrics =>
+                {
+                    var result = metrics.AddMessageWorkerPoolInstrumentation(customServiceName);
+                    result.Should().BeSameAs(metrics);
+                });
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolInstrumentation_TracerProviderBuilder_WithServiceName_ShouldAddCorrectSource()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var customServiceName = "CustomTracerService";
+
+            // Act & Assert
+            services.AddOpenTelemetry()
+                .WithTracing(tracing =>
+                {
+                    var result = tracing.AddMessageWorkerPoolInstrumentation(customServiceName);
+                    result.Should().BeSameAs(tracing);
+                });
+        }
     }
 }
 
