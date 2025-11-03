@@ -10,7 +10,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/isdaniel/MessageWorkerPool</PackageProjectUrl>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <PackageDescription>OpenTelemetry extensions for MessageWorkerPool providing metrics and tracing capabilities.</PackageDescription>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
