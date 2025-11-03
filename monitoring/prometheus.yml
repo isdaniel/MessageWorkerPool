@@ -14,18 +14,18 @@ scrape_configs:
 
   # MessageWorkerPool application metrics - Multi-worker support
   # Docker Compose creates network aliases that resolve to all container IPs
-  - job_name: 'messageworkerpool'
-    dns_sd_configs:
-      - names:
-          - 'workersample'
-        type: 'A'
-        port: 9464
-        refresh_interval: 15s
-    scrape_interval: 10s
-    metrics_path: /metrics
-    honor_timestamps: false
-    scrape_protocols:
-      - PrometheusText0.0.4
+  # - job_name: 'messageworkerpool'
+  #   dns_sd_configs:
+  #     - names:
+  #         - 'workersample'
+  #       type: 'A'
+  #       port: 9464
+  #       refresh_interval: 15s
+  #   scrape_interval: 10s
+  #   metrics_path: /metrics
+  #   honor_timestamps: false
+  #   scrape_protocols:
+  #     - PrometheusText0.0.4
     # Relabel to add instance information
     relabel_configs:
       - source_labels: [__address__]

@@ -93,8 +93,25 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
 
             // Configure OpenTelemetry
             services.AddOpenTelemetry()
-                .ConfigureResource(resource => resource
-                    .AddService(options.ServiceName, options.ServiceVersion))
+                .ConfigureResource(resource =>
+                {
+                    // Set service instance ID: use custom value, hostname, or let SDK generate UUID
+                    var instanceId = options.ServiceInstanceId 
+                        ?? Environment.GetEnvironmentVariable("HOSTNAME") 
+                        ?? Environment.GetEnvironmentVariable("COMPUTERNAME")
+                        ?? System.Net.Dns.GetHostName();
+                    
+                    resource
+                        .AddService(
+                            serviceName: options.ServiceName, 
+                            serviceVersion: options.ServiceVersion,
+                            serviceInstanceId: instanceId)
+                        .AddAttributes(new[]
+                        {
+                            new System.Collections.Generic.KeyValuePair<string, object>("host.name", System.Net.Dns.GetHostName()),
+                            new System.Collections.Generic.KeyValuePair<string, object>("container.id", Environment.GetEnvironmentVariable("HOSTNAME") ?? "N/A")
+                        });
+                })
                 .WithMetrics(metrics =>
                 {
                     metrics.AddMessageWorkerPoolInstrumentation(options.ServiceName);
@@ -129,6 +146,12 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
         /// Gets or sets the service version for telemetry.
         /// </summary>
         public string ServiceVersion { get; set; } = "1.0.0";
+
+        /// <summary>
+        /// Gets or sets the service instance ID for telemetry.
+        /// If not specified, defaults to the hostname or a generated UUID.
+        /// </summary>
+        public string ServiceInstanceId { get; set; }
 
         /// <summary>
         /// Gets or sets whether to enable runtime instrumentation.
