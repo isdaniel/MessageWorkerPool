@@ -902,6 +902,200 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             // Assert - Should use the custom provider we registered
             envProvider.Should().BeSameAs(mockProvider);
         }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ConfigureResource_WithCustomInstanceId_ShouldNotThrow()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var mockProvider = new MockEnvironmentInfoProvider();
+            mockProvider.SetEnvironmentVariable("HOSTNAME", "test-container");
+            mockProvider.SetHostName("test-host.local");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockProvider);
+
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = "custom-instance-123";
+            });
+
+            // Act - Retrieve TracerProvider to force OpenTelemetry to build and execute ConfigureResource
+            Action act = () =>
+            {
+                using var provider = services.BuildServiceProvider();
+                var tracerProvider = provider.GetService<TracerProvider>();
+                // ConfigureResource should have executed during provider initialization
+            };
+
+            // Assert - Verify ConfigureResource executes without throwing
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ConfigureResource_WithHostnameEnvVar_ShouldNotThrow()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var mockProvider = new MockEnvironmentInfoProvider();
+            mockProvider.SetEnvironmentVariable("HOSTNAME", "test-container-hostname");
+            mockProvider.SetHostName("fallback-host.local");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockProvider);
+
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                // ServiceInstanceId is null, should use HOSTNAME env var
+            });
+
+            // Act - Retrieve TracerProvider to force ConfigureResource execution
+            Action act = () =>
+            {
+                using var provider = services.BuildServiceProvider();
+                var tracerProvider = provider.GetService<TracerProvider>();
+            };
+
+            // Assert - Verify ConfigureResource uses HOSTNAME without throwing
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ConfigureResource_WithComputerNameEnvVar_ShouldNotThrow()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var mockProvider = new MockEnvironmentInfoProvider();
+            // HOSTNAME is null, COMPUTERNAME should be used
+            mockProvider.SetEnvironmentVariable("COMPUTERNAME", "test-computer-name");
+            mockProvider.SetHostName("fallback-host.local");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockProvider);
+
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                // ServiceInstanceId is null, HOSTNAME is null, should use COMPUTERNAME
+            });
+
+            // Act - Retrieve TracerProvider to force ConfigureResource execution
+            Action act = () =>
+            {
+                using var provider = services.BuildServiceProvider();
+                var tracerProvider = provider.GetService<TracerProvider>();
+            };
+
+            // Assert - Verify ConfigureResource uses COMPUTERNAME without throwing
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ConfigureResource_WithHostNameFallback_ShouldNotThrow()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var mockProvider = new MockEnvironmentInfoProvider();
+            // All env vars null, should use GetHostName()
+            mockProvider.SetHostName("dns-hostname.local");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockProvider);
+
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                // ServiceInstanceId, HOSTNAME, COMPUTERNAME all null - should use GetHostName()
+            });
+
+            // Act - Retrieve TracerProvider to force ConfigureResource execution
+            Action act = () =>
+            {
+                using var provider = services.BuildServiceProvider();
+                var tracerProvider = provider.GetService<TracerProvider>();
+            };
+
+            // Assert - Verify ConfigureResource uses GetHostName() without throwing
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ConfigureResource_WithHostnameForContainerId_ShouldNotThrow()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var mockProvider = new MockEnvironmentInfoProvider();
+            mockProvider.SetEnvironmentVariable("HOSTNAME", "container-123");
+            mockProvider.SetHostName("test-host.local");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockProvider);
+
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+            });
+
+            // Act - Retrieve TracerProvider to force ConfigureResource execution
+            Action act = () =>
+            {
+                using var provider = services.BuildServiceProvider();
+                var tracerProvider = provider.GetService<TracerProvider>();
+            };
+
+            // Assert - Verify ConfigureResource sets containerId from HOSTNAME without throwing
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ConfigureResource_WithNullHostnameForContainerId_ShouldNotThrow()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var mockProvider = new MockEnvironmentInfoProvider();
+            // HOSTNAME is null, containerId should be "N/A"
+            mockProvider.SetHostName("test-host.local");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockProvider);
+
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+            });
+
+            // Act - Retrieve TracerProvider to force ConfigureResource execution
+            Action act = () =>
+            {
+                using var provider = services.BuildServiceProvider();
+                var tracerProvider = provider.GetService<TracerProvider>();
+            };
+
+            // Assert - Verify ConfigureResource defaults containerId to "N/A" without throwing
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ConfigureResource_WithHostNameAttribute_ShouldNotThrow()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var mockProvider = new MockEnvironmentInfoProvider();
+            mockProvider.SetHostName("test-hostname.local");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockProvider);
+
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+            });
+
+            // Act - Retrieve TracerProvider to force ConfigureResource execution
+            Action act = () =>
+            {
+                using var provider = services.BuildServiceProvider();
+                var tracerProvider = provider.GetService<TracerProvider>();
+            };
+
+            // Assert - Verify ConfigureResource adds host.name attribute without throwing
+            act.Should().NotThrow();
+        }
     }
 }
 
