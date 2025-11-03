@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using System;
 using System.Linq;
 using MessageWorkerPool.Utilities;
+using MessageWorkerPool.Telemetry.Abstractions;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 
@@ -35,7 +36,8 @@ namespace MessageWorkerPool.Kafka.Extensions
             {
                 var setting = provider.GetService<MqSettingBase>();
                 var loggerFactory = provider.GetService<ILoggerFactory>();
-                var factory = new WorkerPoolFactory(setting, loggerFactory);
+                var telemetryManager = provider.GetService<ITelemetryManager>();
+                var factory = new WorkerPoolFactory(setting, loggerFactory, telemetryManager);
                 factory.RegisterGeneric<KafkaSetting<TKey>, KafkaMqWorkerPool<TKey>>();
                 return factory;
             });

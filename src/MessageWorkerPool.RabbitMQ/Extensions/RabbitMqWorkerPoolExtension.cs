@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MessageWorkerPool.Utilities;
+using MessageWorkerPool.Telemetry.Abstractions;
 using System;
 using System.Linq;
 
@@ -44,7 +45,8 @@ namespace MessageWorkerPool.RabbitMQ.Extensions
             {
                 var setting = provider.GetService<MqSettingBase>();
                 var loggerFactory = provider.GetService<ILoggerFactory>();
-                var factory = new WorkerPoolFactory(setting, loggerFactory);
+                var telemetryManager = provider.GetService<ITelemetryManager>();
+                var factory = new WorkerPoolFactory(setting, loggerFactory, telemetryManager);
                 factory.RegisterGeneric<RabbitMqSetting, RabbitMqWorkerPool>();
                 return factory;
             });
