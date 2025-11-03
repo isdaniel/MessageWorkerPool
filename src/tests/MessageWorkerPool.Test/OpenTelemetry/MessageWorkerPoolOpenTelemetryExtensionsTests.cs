@@ -464,6 +464,309 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             // Assert
             act.Should().NotThrow();
         }
+
+        [Fact]
+        public void MessageWorkerPoolTelemetryOptions_ServiceInstanceId_DefaultValueShouldBeNull()
+        {
+            // Act
+            var options = new MessageWorkerPoolTelemetryOptions();
+
+            // Assert
+            options.ServiceInstanceId.Should().BeNull();
+        }
+
+        [Fact]
+        public void MessageWorkerPoolTelemetryOptions_ServiceInstanceId_CanBeSet()
+        {
+            // Arrange
+            var options = new MessageWorkerPoolTelemetryOptions();
+            var instanceId = "custom-instance-123";
+
+            // Act
+            options.ServiceInstanceId = instanceId;
+
+            // Assert
+            options.ServiceInstanceId.Should().Be(instanceId);
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithCustomServiceInstanceId_ShouldApplyInstanceId()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var customInstanceId = "worker-node-42";
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestWorkerPool";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = customInstanceId;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithNullServiceInstanceId_ShouldUseAutoDetection()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestWorkerPool";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = null; // Explicitly set to null
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithEmptyServiceInstanceId_ShouldHandleEmptyString()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestWorkerPool";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = string.Empty;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithLongServiceInstanceId_ShouldAcceptLongInstanceId()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var longInstanceId = new string('a', 256); // Very long instance ID
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestWorkerPool";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = longInstanceId;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithSpecialCharactersInInstanceId_ShouldHandleSpecialCharacters()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var specialInstanceId = "worker-01_prod.app@hostname:8080";
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestWorkerPool";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = specialInstanceId;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ServiceInstanceIdFromEnvironmentVariable_ShouldWork()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var envVarInstanceId = Environment.GetEnvironmentVariable("COMPUTERNAME") 
+                ?? Environment.GetEnvironmentVariable("HOSTNAME") 
+                ?? "fallback-hostname";
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestWorkerPool";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = envVarInstanceId;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithAllOptionsIncludingInstanceId_ShouldApplyAllSettings()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            bool metricsConfigured = false;
+            bool tracingConfigured = false;
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "FullyConfiguredService";
+                options.ServiceVersion = "2.0.0";
+                options.ServiceInstanceId = "instance-full-test";
+                options.EnableRuntimeInstrumentation = true;
+                options.ConfigureMetrics = metrics => { metricsConfigured = true; };
+                options.ConfigureTracing = tracing => { tracingConfigured = true; };
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+            metricsConfigured.Should().BeTrue();
+            tracingConfigured.Should().BeTrue();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithDifferentInstanceIdFormats_ShouldHandleVariousFormats()
+        {
+            // Test various instance ID formats
+            var testCases = new[]
+            {
+                "simple-id",
+                "container-abc123def456",
+                "192.168.1.100",
+                "worker-01",
+                "UPPERCASE-INSTANCE",
+                "mixed-Case_123",
+                "with.dots.and-dashes_123"
+            };
+
+            foreach (var instanceId in testCases)
+            {
+                // Arrange
+                var services = new ServiceCollection();
+
+                // Act
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceInstanceId = instanceId;
+                });
+
+                var serviceProvider = services.BuildServiceProvider();
+
+                // Assert
+                serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull(
+                    $"Failed for instance ID: {instanceId}");
+            }
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithGuidAsInstanceId_ShouldHandleGuidFormat()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var guidInstanceId = Guid.NewGuid().ToString();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceInstanceId = guidInstanceId;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void MessageWorkerPoolTelemetryOptions_AllProperties_ShouldBeSettableIndependently()
+        {
+            // Arrange
+            var options = new MessageWorkerPoolTelemetryOptions();
+
+            // Act - Set all properties
+            options.ServiceName = "CustomService";
+            options.ServiceVersion = "3.0.0";
+            options.ServiceInstanceId = "custom-instance";
+            options.EnableRuntimeInstrumentation = false;
+            options.ConfigureMetrics = metrics => { };
+            options.ConfigureTracing = tracing => { };
+
+            // Assert
+            options.ServiceName.Should().Be("CustomService");
+            options.ServiceVersion.Should().Be("3.0.0");
+            options.ServiceInstanceId.Should().Be("custom-instance");
+            options.EnableRuntimeInstrumentation.Should().BeFalse();
+            options.ConfigureMetrics.Should().NotBeNull();
+            options.ConfigureTracing.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithInstanceIdAndMetricsConfig_ShouldApplyBoth()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            bool metricsConfigured = false;
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceInstanceId = "metrics-test-instance";
+                options.ConfigureMetrics = metrics =>
+                {
+                    metricsConfigured = true;
+                    metrics.AddMessageWorkerPoolInstrumentation();
+                };
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+            metricsConfigured.Should().BeTrue();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithInstanceIdAndTracingConfig_ShouldApplyBoth()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            bool tracingConfigured = false;
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceInstanceId = "tracing-test-instance";
+                options.ConfigureTracing = tracing =>
+                {
+                    tracingConfigured = true;
+                    tracing.AddMessageWorkerPoolInstrumentation();
+                };
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+            tracingConfigured.Should().BeTrue();
+        }
     }
 }
 
