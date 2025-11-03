@@ -36,7 +36,7 @@ namespace WorkerHost
                 options.ServiceName = "MessageWorkerPool.Example.Host";
                 options.ServiceVersion = "1.0.0";
                 options.EnableRuntimeInstrumentation = true;
-
+                options.ServiceInstanceId = Environment.GetEnvironmentVariable("OTEL_SERVICE_INSTANCE_ID");
                 // Configure metrics with OTLP exporter and Prometheus
                 options.ConfigureMetrics = metrics =>
                 {
@@ -83,10 +83,10 @@ namespace WorkerHost
             var app = builder.Build();
 
             // Map Prometheus metrics endpoint
-            app.MapPrometheusScrapingEndpoint();
+            //app.MapPrometheusScrapingEndpoint();
 
             // Configure URLs for metrics endpoint
-            app.Urls.Add("http://*:9464");
+            //app.Urls.Add("http://*:9464");
 
             await app.RunAsync();
         }
