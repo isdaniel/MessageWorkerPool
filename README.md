@@ -241,12 +241,6 @@ public class Program
 
         var app = builder.Build();
 
-        // Map Prometheus metrics endpoint
-        app.MapPrometheusScrapingEndpoint();
-
-        // Configure URL for metrics endpoint
-        app.Urls.Add("http://*:9464");
-
         await app.RunAsync();
     }
 }
