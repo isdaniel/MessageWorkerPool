@@ -6,10 +6,47 @@ using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using System;
+using System.Linq;
 using Xunit;
 
 namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
 {
+    /// <summary>
+    /// Mock implementation of IEnvironmentInfoProvider for testing.
+    /// </summary>
+    public class MockEnvironmentInfoProvider : IEnvironmentInfoProvider
+    {
+        private readonly System.Collections.Generic.Dictionary<string, string> _environmentVariables = new System.Collections.Generic.Dictionary<string, string>();
+        private string _hostName = "mock-hostname";
+
+        public void SetEnvironmentVariable(string variable, string value)
+        {
+            if (value == null)
+            {
+                _environmentVariables.Remove(variable);
+            }
+            else
+            {
+                _environmentVariables[variable] = value;
+            }
+        }
+
+        public void SetHostName(string hostName)
+        {
+            _hostName = hostName;
+        }
+
+        public string GetEnvironmentVariable(string variable)
+        {
+            return _environmentVariables.TryGetValue(variable, out var value) ? value : null;
+        }
+
+        public string GetHostName()
+        {
+            return _hostName;
+        }
+    }
+
     [Collection("TelemetryTests")]
     public class MessageWorkerPoolOpenTelemetryExtensionsTests
     {
@@ -549,31 +586,22 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
         {
             // Arrange
             var services = new ServiceCollection();
-            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+            var mockEnvProvider = new MockEnvironmentInfoProvider();
+            mockEnvProvider.SetEnvironmentVariable("HOSTNAME", "test-container-hostname");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockEnvProvider);
 
-            try
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
             {
-                // Set environment variable for test
-                Environment.SetEnvironmentVariable("HOSTNAME", "test-container-hostname");
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = null; // Force fallback to env var
+            });
 
-                // Act
-                services.AddMessageWorkerPoolTelemetry(options =>
-                {
-                    options.ServiceName = "TestService";
-                    options.ServiceVersion = "1.0.0";
-                    options.ServiceInstanceId = null; // Force fallback to env var
-                });
+            var serviceProvider = services.BuildServiceProvider();
 
-                var serviceProvider = services.BuildServiceProvider();
-
-                // Assert
-                serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
-            }
-            finally
-            {
-                // Restore original value
-                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
-            }
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
         }
 
         [Fact]
@@ -581,34 +609,22 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
         {
             // Arrange
             var services = new ServiceCollection();
-            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
-            var originalComputerName = Environment.GetEnvironmentVariable("COMPUTERNAME");
+            var mockEnvProvider = new MockEnvironmentInfoProvider();
+            mockEnvProvider.SetEnvironmentVariable("COMPUTERNAME", "test-computer-name");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockEnvProvider);
 
-            try
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
             {
-                // Clear HOSTNAME and set COMPUTERNAME for test
-                Environment.SetEnvironmentVariable("HOSTNAME", null);
-                Environment.SetEnvironmentVariable("COMPUTERNAME", "test-computer-name");
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = null; // Force fallback to env var
+            });
 
-                // Act
-                services.AddMessageWorkerPoolTelemetry(options =>
-                {
-                    options.ServiceName = "TestService";
-                    options.ServiceVersion = "1.0.0";
-                    options.ServiceInstanceId = null; // Force fallback to env var
-                });
+            var serviceProvider = services.BuildServiceProvider();
 
-                var serviceProvider = services.BuildServiceProvider();
-
-                // Assert
-                serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
-            }
-            finally
-            {
-                // Restore original values
-                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
-                Environment.SetEnvironmentVariable("COMPUTERNAME", originalComputerName);
-            }
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
         }
 
         [Fact]
@@ -616,34 +632,22 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
         {
             // Arrange
             var services = new ServiceCollection();
-            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
-            var originalComputerName = Environment.GetEnvironmentVariable("COMPUTERNAME");
+            var mockEnvProvider = new MockEnvironmentInfoProvider();
+            mockEnvProvider.SetHostName("fallback-dns-hostname");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockEnvProvider);
 
-            try
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
             {
-                // Clear both environment variables for test
-                Environment.SetEnvironmentVariable("HOSTNAME", null);
-                Environment.SetEnvironmentVariable("COMPUTERNAME", null);
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = null; // Force fallback to DNS
+            });
 
-                // Act
-                services.AddMessageWorkerPoolTelemetry(options =>
-                {
-                    options.ServiceName = "TestService";
-                    options.ServiceVersion = "1.0.0";
-                    options.ServiceInstanceId = null; // Force fallback to DNS
-                });
+            var serviceProvider = services.BuildServiceProvider();
 
-                var serviceProvider = services.BuildServiceProvider();
-
-                // Assert
-                serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
-            }
-            finally
-            {
-                // Restore original values
-                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
-                Environment.SetEnvironmentVariable("COMPUTERNAME", originalComputerName);
-            }
+            // Assert
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
         }
 
         [Fact]
@@ -651,30 +655,21 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
         {
             // Arrange
             var services = new ServiceCollection();
-            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+            var mockEnvProvider = new MockEnvironmentInfoProvider();
+            mockEnvProvider.SetEnvironmentVariable("HOSTNAME", "container-xyz-123");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockEnvProvider);
 
-            try
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
             {
-                // Set HOSTNAME environment variable
-                Environment.SetEnvironmentVariable("HOSTNAME", "container-xyz-123");
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+            });
 
-                // Act
-                services.AddMessageWorkerPoolTelemetry(options =>
-                {
-                    options.ServiceName = "TestService";
-                    options.ServiceVersion = "1.0.0";
-                });
+            var serviceProvider = services.BuildServiceProvider();
 
-                var serviceProvider = services.BuildServiceProvider();
-
-                // Assert - Verify service provider configuration
-                serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
-            }
-            finally
-            {
-                // Restore original value
-                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
-            }
+            // Assert - Verify service provider configuration
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
         }
 
         [Fact]
@@ -682,30 +677,20 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
         {
             // Arrange
             var services = new ServiceCollection();
-            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+            var mockEnvProvider = new MockEnvironmentInfoProvider();
+            services.AddSingleton<IEnvironmentInfoProvider>(mockEnvProvider);
 
-            try
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
             {
-                // Clear HOSTNAME environment variable
-                Environment.SetEnvironmentVariable("HOSTNAME", null);
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+            });
 
-                // Act
-                services.AddMessageWorkerPoolTelemetry(options =>
-                {
-                    options.ServiceName = "TestService";
-                    options.ServiceVersion = "1.0.0";
-                });
+            var serviceProvider = services.BuildServiceProvider();
 
-                var serviceProvider = services.BuildServiceProvider();
-
-                // Assert - Verify service provider configuration with N/A as container.id
-                serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
-            }
-            finally
-            {
-                // Restore original value
-                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
-            }
+            // Assert - Verify service provider configuration with N/A as container.id
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
         }
 
         [Fact]
@@ -758,34 +743,23 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
             // Arrange
             var services = new ServiceCollection();
             var customInstanceId = "priority-custom-id";
-            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
-            var originalComputerName = Environment.GetEnvironmentVariable("COMPUTERNAME");
+            var mockEnvProvider = new MockEnvironmentInfoProvider();
+            mockEnvProvider.SetEnvironmentVariable("HOSTNAME", "should-be-ignored-hostname");
+            mockEnvProvider.SetEnvironmentVariable("COMPUTERNAME", "should-be-ignored-computername");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockEnvProvider);
 
-            try
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
             {
-                // Set environment variables that should be ignored
-                Environment.SetEnvironmentVariable("HOSTNAME", "should-be-ignored-hostname");
-                Environment.SetEnvironmentVariable("COMPUTERNAME", "should-be-ignored-computername");
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = customInstanceId;
+            });
 
-                // Act
-                services.AddMessageWorkerPoolTelemetry(options =>
-                {
-                    options.ServiceName = "TestService";
-                    options.ServiceVersion = "1.0.0";
-                    options.ServiceInstanceId = customInstanceId;
-                });
+            var serviceProvider = services.BuildServiceProvider();
 
-                var serviceProvider = services.BuildServiceProvider();
-
-                // Assert - Custom value should take precedence over environment variables
-                serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
-            }
-            finally
-            {
-                // Restore original values
-                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
-                Environment.SetEnvironmentVariable("COMPUTERNAME", originalComputerName);
-            }
+            // Assert - Custom value should take precedence over environment variables
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
         }
 
         [Fact]
@@ -793,34 +767,140 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
         {
             // Arrange
             var services = new ServiceCollection();
-            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
-            var originalComputerName = Environment.GetEnvironmentVariable("COMPUTERNAME");
+            var mockEnvProvider = new MockEnvironmentInfoProvider();
+            mockEnvProvider.SetEnvironmentVariable("HOSTNAME", "hostname-takes-precedence");
+            mockEnvProvider.SetEnvironmentVariable("COMPUTERNAME", "should-be-ignored-computername");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockEnvProvider);
 
-            try
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
             {
-                // Set both environment variables
-                Environment.SetEnvironmentVariable("HOSTNAME", "hostname-takes-precedence");
-                Environment.SetEnvironmentVariable("COMPUTERNAME", "should-be-ignored-computername");
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = null; // Force environment variable resolution
+            });
 
-                // Act
-                services.AddMessageWorkerPoolTelemetry(options =>
-                {
-                    options.ServiceName = "TestService";
-                    options.ServiceVersion = "1.0.0";
-                    options.ServiceInstanceId = null; // Force environment variable resolution
-                });
+            var serviceProvider = services.BuildServiceProvider();
 
-                var serviceProvider = services.BuildServiceProvider();
+            // Assert - HOSTNAME should take precedence over COMPUTERNAME
+            serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+        }
 
-                // Assert - HOSTNAME should take precedence over COMPUTERNAME
-                serviceProvider.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
-            }
-            finally
+        [Fact]
+        public void DefaultEnvironmentInfoProvider_GetEnvironmentVariable_ShouldReturnEnvironmentVariable()
+        {
+            // Arrange
+            var provider = new DefaultEnvironmentInfoProvider();
+            var testVarName = "PATH"; // PATH should exist on all systems
+
+            // Act
+            var result = provider.GetEnvironmentVariable(testVarName);
+
+            // Assert
+            result.Should().Be(Environment.GetEnvironmentVariable(testVarName));
+        }
+
+        [Fact]
+        public void DefaultEnvironmentInfoProvider_GetHostName_ShouldReturnHostName()
+        {
+            // Arrange
+            var provider = new DefaultEnvironmentInfoProvider();
+
+            // Act
+            var result = provider.GetHostName();
+
+            // Assert
+            result.Should().Be(System.Net.Dns.GetHostName());
+        }
+
+        [Fact]
+        public void MockEnvironmentInfoProvider_SetEnvironmentVariable_ShouldStoreValue()
+        {
+            // Arrange
+            var provider = new MockEnvironmentInfoProvider();
+            var varName = "TEST_VAR";
+            var varValue = "test-value";
+
+            // Act
+            provider.SetEnvironmentVariable(varName, varValue);
+            var result = provider.GetEnvironmentVariable(varName);
+
+            // Assert
+            result.Should().Be(varValue);
+        }
+
+        [Fact]
+        public void MockEnvironmentInfoProvider_SetEnvironmentVariable_WithNull_ShouldRemoveValue()
+        {
+            // Arrange
+            var provider = new MockEnvironmentInfoProvider();
+            var varName = "TEST_VAR";
+            provider.SetEnvironmentVariable(varName, "initial-value");
+
+            // Act
+            provider.SetEnvironmentVariable(varName, null);
+            var result = provider.GetEnvironmentVariable(varName);
+
+            // Assert
+            result.Should().BeNull();
+        }
+
+        [Fact]
+        public void MockEnvironmentInfoProvider_SetHostName_ShouldReturnCustomHostName()
+        {
+            // Arrange
+            var provider = new MockEnvironmentInfoProvider();
+            var customHostName = "custom-test-host";
+
+            // Act
+            provider.SetHostName(customHostName);
+            var result = provider.GetHostName();
+
+            // Assert
+            result.Should().Be(customHostName);
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithMockProvider_ShouldRegisterDefaultIfNotProvided()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act - Don't register a custom provider
+            services.AddMessageWorkerPoolTelemetry(options =>
             {
-                // Restore original values
-                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
-                Environment.SetEnvironmentVariable("COMPUTERNAME", originalComputerName);
-            }
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+            var envProvider = serviceProvider.GetRequiredService<IEnvironmentInfoProvider>();
+
+            // Assert - Should have registered the default provider
+            envProvider.Should().BeOfType<DefaultEnvironmentInfoProvider>();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithCustomProvider_ShouldUseCustomProvider()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var mockProvider = new MockEnvironmentInfoProvider();
+            mockProvider.SetHostName("custom-provider-host");
+            services.AddSingleton<IEnvironmentInfoProvider>(mockProvider);
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+            var envProvider = serviceProvider.GetRequiredService<IEnvironmentInfoProvider>();
+
+            // Assert - Should use the custom provider we registered
+            envProvider.Should().BeSameAs(mockProvider);
         }
     }
 }

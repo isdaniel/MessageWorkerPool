@@ -1,13 +1,47 @@
 using System;
+using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using MessageWorkerPool.Telemetry;
 using MessageWorkerPool.Telemetry.Abstractions;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using System.Collections.Generic;
 
 namespace MessageWorkerPool.OpenTelemetry.Extensions
 {
+    /// <summary>
+    /// Abstraction for retrieving environment information.
+    /// </summary>
+    public interface IEnvironmentInfoProvider
+    {
+        /// <summary>
+        /// Gets the value of an environment variable.
+        /// </summary>
+        string GetEnvironmentVariable(string variable);
+
+        /// <summary>
+        /// Gets the hostname of the current machine.
+        /// </summary>
+        string GetHostName();
+    }
+
+    /// <summary>
+    /// Default implementation of IEnvironmentInfoProvider.
+    /// </summary>
+    public class DefaultEnvironmentInfoProvider : IEnvironmentInfoProvider
+    {
+        public string GetEnvironmentVariable(string variable)
+        {
+            return Environment.GetEnvironmentVariable(variable);
+        }
+
+        public string GetHostName()
+        {
+            return System.Net.Dns.GetHostName();
+        }
+    }
+
     /// <summary>
     /// Extension methods for configuring OpenTelemetry with MessageWorkerPool.
     /// </summary>
@@ -82,6 +116,12 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
             var options = new MessageWorkerPoolTelemetryOptions();
             configure?.Invoke(options);
 
+            // Register environment info provider if not already registered
+            if (!services.Any(x => x.ServiceType == typeof(IEnvironmentInfoProvider)))
+            {
+                services.AddSingleton<IEnvironmentInfoProvider, DefaultEnvironmentInfoProvider>();
+            }
+
             services.AddSingleton<ITelemetryProvider>(new OpenTelemetryProvider(options.ServiceName, options.ServiceVersion));
 
             // Register TelemetryManager as a singleton with trace context extractor
@@ -95,21 +135,26 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
             services.AddOpenTelemetry()
                 .ConfigureResource(resource =>
                 {
+                    var environmentInfoProvider = services.BuildServiceProvider().GetRequiredService<IEnvironmentInfoProvider>();
+
                     // Set service instance ID: use custom value, hostname, or let SDK generate UUID
-                    var instanceId = options.ServiceInstanceId 
-                        ?? Environment.GetEnvironmentVariable("HOSTNAME") 
-                        ?? Environment.GetEnvironmentVariable("COMPUTERNAME")
-                        ?? System.Net.Dns.GetHostName();
-                    
+                    var instanceId = options.ServiceInstanceId
+                        ?? environmentInfoProvider.GetEnvironmentVariable("HOSTNAME")
+                        ?? environmentInfoProvider.GetEnvironmentVariable("COMPUTERNAME")
+                        ?? environmentInfoProvider.GetHostName();
+
+                    var hostName = environmentInfoProvider.GetHostName();
+                    var containerId = environmentInfoProvider.GetEnvironmentVariable("HOSTNAME") ?? "N/A";
+
                     resource
                         .AddService(
-                            serviceName: options.ServiceName, 
+                            serviceName: options.ServiceName,
                             serviceVersion: options.ServiceVersion,
                             serviceInstanceId: instanceId)
                         .AddAttributes(new[]
                         {
-                            new System.Collections.Generic.KeyValuePair<string, object>("host.name", System.Net.Dns.GetHostName()),
-                            new System.Collections.Generic.KeyValuePair<string, object>("container.id", Environment.GetEnvironmentVariable("HOSTNAME") ?? "N/A")
+                            new KeyValuePair<string, object>("host.name", hostName),
+                            new KeyValuePair<string, object>("container.id", containerId)
                         });
                 })
                 .WithMetrics(metrics =>
@@ -117,8 +162,9 @@ namespace MessageWorkerPool.OpenTelemetry.Extensions
                     metrics.AddMessageWorkerPoolInstrumentation(options.ServiceName);
 
                     if (options.EnableRuntimeInstrumentation)
+                    {
                         metrics.AddRuntimeInstrumentation();
-
+                    }
 
                     options.ConfigureMetrics?.Invoke(metrics);
                 })
