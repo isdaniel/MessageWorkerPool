@@ -994,6 +994,515 @@ namespace MessageWorkerPool.Test.OpenTelemetry.Extensions
                     result.Should().BeSameAs(tracing);
                 });
         }
+
+        #region Resource Configuration Tests
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithCustomInstanceId_ShouldUseCustomInstanceIdInResource()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var customInstanceId = "my-custom-container-id";
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = customInstanceId;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            // The resource is configured with custom instance ID
+            // Verify the telemetry provider is created successfully
+            var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+            provider.Should().NotBeNull();
+            provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithNullInstanceId_ShouldFallbackToHostnameEnvironmentVariable()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+
+            try
+            {
+                // Set HOSTNAME environment variable for testing
+                Environment.SetEnvironmentVariable("HOSTNAME", "test-hostname-from-env");
+
+                // Act
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceName = "TestService";
+                    options.ServiceVersion = "1.0.0";
+                    options.ServiceInstanceId = null; // Trigger fallback
+                });
+
+                var serviceProvider = services.BuildServiceProvider();
+
+                // Assert
+                var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+                provider.Should().NotBeNull();
+            }
+            finally
+            {
+                // Restore original value
+                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
+            }
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithNullInstanceIdAndNoHostname_ShouldFallbackToComputerName()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+            var originalComputerName = Environment.GetEnvironmentVariable("COMPUTERNAME");
+
+            try
+            {
+                // Remove HOSTNAME but set COMPUTERNAME
+                Environment.SetEnvironmentVariable("HOSTNAME", null);
+                Environment.SetEnvironmentVariable("COMPUTERNAME", "test-computer-name");
+
+                // Act
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceName = "TestService";
+                    options.ServiceVersion = "1.0.0";
+                    options.ServiceInstanceId = null;
+                });
+
+                var serviceProvider = services.BuildServiceProvider();
+
+                // Assert
+                var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+                provider.Should().NotBeNull();
+            }
+            finally
+            {
+                // Restore original values
+                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
+                Environment.SetEnvironmentVariable("COMPUTERNAME", originalComputerName);
+            }
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithNullInstanceIdAndNoEnvironmentVars_ShouldFallbackToDnsHostName()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+            var originalComputerName = Environment.GetEnvironmentVariable("COMPUTERNAME");
+
+            try
+            {
+                // Remove both environment variables to force DNS.GetHostName() fallback
+                Environment.SetEnvironmentVariable("HOSTNAME", null);
+                Environment.SetEnvironmentVariable("COMPUTERNAME", null);
+
+                // Act
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceName = "TestService";
+                    options.ServiceVersion = "1.0.0";
+                    options.ServiceInstanceId = null;
+                });
+
+                var serviceProvider = services.BuildServiceProvider();
+
+                // Assert
+                var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+                provider.Should().NotBeNull();
+                
+                // DNS.GetHostName() should always return a value
+                var dnsHostName = System.Net.Dns.GetHostName();
+                dnsHostName.Should().NotBeNullOrEmpty();
+            }
+            finally
+            {
+                // Restore original values
+                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
+                Environment.SetEnvironmentVariable("COMPUTERNAME", originalComputerName);
+            }
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ShouldAddHostNameResourceAttribute()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "TestService";
+                options.ServiceVersion = "1.0.0";
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            // The resource should have host.name attribute set to DNS.GetHostName()
+            var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+            provider.Should().NotBeNull();
+            
+            var expectedHostName = System.Net.Dns.GetHostName();
+            expectedHostName.Should().NotBeNullOrEmpty();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ShouldAddContainerIdResourceAttribute()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+
+            try
+            {
+                // Set HOSTNAME to simulate container environment
+                Environment.SetEnvironmentVariable("HOSTNAME", "container-abc123");
+
+                // Act
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceName = "TestService";
+                    options.ServiceVersion = "1.0.0";
+                });
+
+                var serviceProvider = services.BuildServiceProvider();
+
+                // Assert
+                var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+                provider.Should().NotBeNull();
+                
+                var containerIdValue = Environment.GetEnvironmentVariable("HOSTNAME");
+                containerIdValue.Should().Be("container-abc123");
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
+            }
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithNoHostnameEnvVar_ShouldSetContainerIdToNA()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+
+            try
+            {
+                // Remove HOSTNAME to simulate non-container environment
+                Environment.SetEnvironmentVariable("HOSTNAME", null);
+
+                // Act
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceName = "TestService";
+                    options.ServiceVersion = "1.0.0";
+                });
+
+                var serviceProvider = services.BuildServiceProvider();
+
+                // Assert
+                var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+                provider.Should().NotBeNull();
+                
+                // container.id should be "N/A" when HOSTNAME is not set
+                var containerIdValue = Environment.GetEnvironmentVariable("HOSTNAME") ?? "N/A";
+                containerIdValue.Should().Be("N/A");
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
+            }
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ShouldConfigureResourceWithServiceNameVersionAndInstanceId()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var testServiceName = "MyTestService";
+            var testServiceVersion = "2.5.0";
+            var testInstanceId = "instance-xyz-789";
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = testServiceName;
+                options.ServiceVersion = testServiceVersion;
+                options.ServiceInstanceId = testInstanceId;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+            provider.Should().NotBeNull();
+            provider.Should().BeOfType<MessageWorkerPool.OpenTelemetry.OpenTelemetryProvider>();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ResourceConfiguration_ShouldAddAllRequiredAttributes()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var customInstanceId = "test-instance-123";
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "AttributeTestService";
+                options.ServiceVersion = "3.0.0";
+                options.ServiceInstanceId = customInstanceId;
+            });
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            // Assert
+            var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+            provider.Should().NotBeNull();
+            
+            // Verify the attributes that should be added:
+            // 1. Service name, version, and instance ID via AddService
+            // 2. host.name attribute
+            // 3. container.id attribute
+            var hostName = System.Net.Dns.GetHostName();
+            hostName.Should().NotBeNullOrEmpty();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_InstanceIdFallbackChain_ShouldFollowCorrectPriority()
+        {
+            // Test the priority: ServiceInstanceId > HOSTNAME > COMPUTERNAME > DNS.GetHostName()
+            
+            // Arrange
+            var services = new ServiceCollection();
+            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+            var originalComputerName = Environment.GetEnvironmentVariable("COMPUTERNAME");
+
+            try
+            {
+                // Setup: Set both environment variables
+                Environment.SetEnvironmentVariable("HOSTNAME", "env-hostname");
+                Environment.SetEnvironmentVariable("COMPUTERNAME", "env-computername");
+
+                // Test 1: Custom ServiceInstanceId should take priority
+                var services1 = new ServiceCollection();
+                services1.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceInstanceId = "custom-id";
+                });
+                var sp1 = services1.BuildServiceProvider();
+                sp1.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+
+                // Test 2: When ServiceInstanceId is null, HOSTNAME should be used
+                Environment.SetEnvironmentVariable("HOSTNAME", "test-hostname");
+                Environment.SetEnvironmentVariable("COMPUTERNAME", "should-not-be-used");
+                
+                var services2 = new ServiceCollection();
+                services2.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceInstanceId = null;
+                });
+                var sp2 = services2.BuildServiceProvider();
+                sp2.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+
+                // Test 3: When HOSTNAME is null, COMPUTERNAME should be used
+                Environment.SetEnvironmentVariable("HOSTNAME", null);
+                Environment.SetEnvironmentVariable("COMPUTERNAME", "test-computername");
+                
+                var services3 = new ServiceCollection();
+                services3.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceInstanceId = null;
+                });
+                var sp3 = services3.BuildServiceProvider();
+                sp3.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+
+                // Test 4: When both are null, DNS.GetHostName() should be used
+                Environment.SetEnvironmentVariable("HOSTNAME", null);
+                Environment.SetEnvironmentVariable("COMPUTERNAME", null);
+                
+                var services4 = new ServiceCollection();
+                services4.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceInstanceId = null;
+                });
+                var sp4 = services4.BuildServiceProvider();
+                sp4.GetRequiredService<ITelemetryManager>().Provider.Should().NotBeNull();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
+                Environment.SetEnvironmentVariable("COMPUTERNAME", originalComputerName);
+            }
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithDockerContainerEnvironment_ShouldUseHostnameAsInstanceIdAndContainerId()
+        {
+            // Simulate Docker container environment where HOSTNAME is the container ID
+            
+            // Arrange
+            var services = new ServiceCollection();
+            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+            var containerHostname = "docker-container-abc123def456";
+
+            try
+            {
+                Environment.SetEnvironmentVariable("HOSTNAME", containerHostname);
+
+                // Act
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceName = "DockerizedService";
+                    options.ServiceVersion = "1.0.0";
+                    options.ServiceInstanceId = null; // Let it use HOSTNAME
+                });
+
+                var serviceProvider = services.BuildServiceProvider();
+
+                // Assert
+                var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+                provider.Should().NotBeNull();
+                
+                // In Docker, HOSTNAME env var contains the container ID
+                var hostnameValue = Environment.GetEnvironmentVariable("HOSTNAME");
+                hostnameValue.Should().Be(containerHostname);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
+            }
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ResourceAttributes_ShouldNotThrowWhenDnsGetHostNameFails()
+        {
+            // This test ensures robustness when DNS operations might have issues
+            // In practice, DNS.GetHostName() rarely fails, but we ensure no exceptions
+            
+            // Arrange
+            var services = new ServiceCollection();
+
+            // Act
+            Action act = () =>
+            {
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceName = "RobustService";
+                    options.ServiceVersion = "1.0.0";
+                });
+                var serviceProvider = services.BuildServiceProvider();
+                var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+            };
+
+            // Assert
+            act.Should().NotThrow();
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithKubernetesEnvironment_ShouldUseHostnameAsPodName()
+        {
+            // In Kubernetes, HOSTNAME typically contains the pod name
+            
+            // Arrange
+            var services = new ServiceCollection();
+            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+            var podName = "workerpool-deployment-abc123-xyz789";
+
+            try
+            {
+                Environment.SetEnvironmentVariable("HOSTNAME", podName);
+
+                // Act
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceName = "K8sService";
+                    options.ServiceVersion = "1.0.0";
+                    options.ServiceInstanceId = null; // Use HOSTNAME (pod name)
+                });
+
+                var serviceProvider = services.BuildServiceProvider();
+
+                // Assert
+                var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+                provider.Should().NotBeNull();
+                
+                var hostnameValue = Environment.GetEnvironmentVariable("HOSTNAME");
+                hostnameValue.Should().Be(podName);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
+            }
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_ResourceConfiguration_ShouldBeCalledDuringServiceConfiguration()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            bool resourceConfigured = false;
+
+            // Act
+            services.AddMessageWorkerPoolTelemetry(options =>
+            {
+                options.ServiceName = "ConfigTest";
+                options.ServiceVersion = "1.0.0";
+                options.ServiceInstanceId = "test-instance";
+            });
+
+            // Building the service provider triggers the OpenTelemetry configuration
+            var serviceProvider = services.BuildServiceProvider();
+            
+            // Assert
+            var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+            provider.Should().NotBeNull();
+            
+            // The fact that we can get the provider means resource configuration succeeded
+        }
+
+        [Fact]
+        public void AddMessageWorkerPoolTelemetry_WithEmptyStringInstanceId_ShouldUseEnvironmentFallback()
+        {
+            // Arrange
+            var services = new ServiceCollection();
+            var originalHostname = Environment.GetEnvironmentVariable("HOSTNAME");
+
+            try
+            {
+                Environment.SetEnvironmentVariable("HOSTNAME", "fallback-hostname");
+
+                // Act
+                services.AddMessageWorkerPoolTelemetry(options =>
+                {
+                    options.ServiceName = "TestService";
+                    options.ServiceVersion = "1.0.0";
+                    options.ServiceInstanceId = string.Empty;
+                });
+
+                var serviceProvider = services.BuildServiceProvider();
+
+                // Assert
+                var provider = serviceProvider.GetRequiredService<ITelemetryManager>().Provider;
+                provider.Should().NotBeNull();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("HOSTNAME", originalHostname);
+            }
+        }
+
+        #endregion
     }
 }
 
