@@ -5,5 +5,4 @@ OTEL_EXPORTER_OTLP_PROTOCOL=grpc
 OTEL_SERVICE_NAME=MessageWorkerPool
 OTEL_SERVICE_VERSION=1.0.0
 OTEL_RESOURCE_ATTRIBUTES=service.namespace=messageworkerpool,deployment.environment=docker-compose
-PROMETHEUS_ENDPOINT=http://otel-collector:8888/metrics
 JAEGER_ENDPOINT=http://jaeger:14268/api/traces

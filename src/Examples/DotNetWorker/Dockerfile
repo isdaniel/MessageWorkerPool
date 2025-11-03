@@ -11,6 +11,6 @@ WORKDIR /app
 COPY --from=build /app .
 
 # Expose metrics port for Prometheus
-EXPOSE 9464
+# EXPOSE 9464
 
 CMD ["dotnet","host/WorkerHost.dll"]
