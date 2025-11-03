@@ -37,39 +37,13 @@ services:
     #build: ./examples_worker/rust
     #stop_grace_period: 120s
     env_file: ./env/.env
-    ports:
-      - "9464-9474:9464"
+    # ports:
+    #   - "9464-9474:9464"
     depends_on:
       - publisher
       - otel-collector
     networks:
       - net-mq
-  # sqlserver:
-  #   image: dog830228/silo-db:1.1
-  #   hostname: sqlsever
-  #   ports:
-  #     - "1433:1433"
-  #   restart: always
-  #   networks:
-  #     - net-mq
-  #   environment:
-  #     ACCEPT_EULA: 'Y'
-  #     SA_PASSWORD: 'test.123'
-  #     MSSQL_PID: 'Standard'
-  # siloweb:
-  #   #build: ./MQDashBoard/Silo/
-  #   image: dog830228/silo-server:1.1
-  #   ports:
-  #     - "8899:8899"
-  #   expose:
-  #     - "8899"
-  #   restart: always
-  #   environment:
-  #     DBConnection: 'Data Source=sqlserver;Initial Catalog=orleans;User ID=sa;Password=test.123;'
-  #   networks:
-  #     - net-mq
-  #   depends_on:
-  #     - sqlserver
 
   # OpenTelemetry Monitoring Stack
   prometheus:
@@ -110,7 +84,6 @@ services:
     ports:
       - "4317:4317"     # OTLP gRPC receiver
       - "4318:4318"     # OTLP HTTP receiver
-      - "8888:8888"     # Prometheus metrics
       - "8889:8889"     # Prometheus exporter metrics
     depends_on:
       - prometheus
