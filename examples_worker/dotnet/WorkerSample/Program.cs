@@ -1,9 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MessageWorkerPool;
-using MessageWorkerPool.RabbitMq;
+using MessageWorkerPool.RabbitMQ;
 using Microsoft.Extensions.Logging;
-using MessageWorkerPool.Extensions;
+using MessageWorkerPool.RabbitMQ.Extensions;
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Console;
